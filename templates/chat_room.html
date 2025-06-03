@@ -1,0 +1,74 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Room</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        #messages {
+            height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .message {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Chat Room with:
+        {% for user in room.users.all %}
+            {% if user != request.user %}
+                {{ user.username }}
+            {% endif %}
+        {% endfor %}
+    </h2>
+
+    <p>You are logged in as <strong>{{ request.user.username }}</strong></p>
+
+    <div id="messages">
+        {% for message in messages %}
+            <div class="message">
+                <strong>{{ message.sender.username }}:</strong>
+                {{ message.content }}
+                <small>({{ message.timestamp|date:"H:i" }})</small>
+            </div>
+        {% endfor %}
+    </div>
+
+    <form id="chat-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" id="room-id" value="{{ room.id }}">
+        <input type="text" id="chat-input" placeholder="Type your message..." required>
+        <button type="submit">Send</button>
+    </form>
+
+    <script>
+        $('#chat-form').on('submit', function(e) {
+            e.preventDefault();
+            const content = $('#chat-input').val();
+            const room_id = $('#room-id').val();
+            $.post("{% url 'send_message' %}", {
+                content: content,
+                room_id: room_id,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(data) {
+                if (data.status === 'Message Sent') {
+                    $('#chat-input').val('');
+                    location.reload();  // reloads to show new message
+                }
+            });
+        });
+
+        // Auto-scroll to bottom
+        var messageDiv = document.getElementById("messages");
+        messageDiv.scrollTop = messageDiv.scrollHeight;
+    </script>
+</body>
+</html>

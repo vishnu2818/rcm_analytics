@@ -1,0 +1,33 @@
+<!-- templates/rcm_app/filtered_display.html -->
+{% load extras %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Filtered Data</title>
+</head>
+<body>
+<h2>Filtered Excel Data with Status</h2>
+<table border="1">
+    <thead>
+        <tr>
+            {% for column in columns %}
+                <th>{{ column }}</th>
+            {% endfor %}
+            <th>Payment Status</th>
+            <th>AR Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+            <tr>
+                {% for column in columns %}
+                    <td>{{ row.data|get_item:column }}</td>
+                {% endfor %}
+                <td>{{ row.payment_status }}</td>
+                <td>{{ row.ar_status }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>

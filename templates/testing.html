@@ -1,0 +1,206 @@
+<!--&lt;!&ndash;<!DOCTYPE html>&ndash;&gt;-->
+<!--&lt;!&ndash;<html>&ndash;&gt;-->
+<!--&lt;!&ndash;<head>&ndash;&gt;-->
+<!--&lt;!&ndash;    <title>Excel Data Preview</title>&ndash;&gt;-->
+<!--&lt;!&ndash;</head>&ndash;&gt;-->
+<!--&lt;!&ndash;<body>&ndash;&gt;-->
+<!--&lt;!&ndash;    <h1>First 50 Records</h1>&ndash;&gt;-->
+<!--&lt;!&ndash;    <table border="1">&ndash;&gt;-->
+<!--&lt;!&ndash;        <thead>&ndash;&gt;-->
+<!--&lt;!&ndash;            <tr>&ndash;&gt;-->
+<!--&lt;!&ndash;                {% if data %}&ndash;&gt;-->
+<!--&lt;!&ndash;                    {% for key in data.0.keys %}&ndash;&gt;-->
+<!--&lt;!&ndash;                        <th>{{ key }}</th>&ndash;&gt;-->
+<!--&lt;!&ndash;                    {% endfor %}&ndash;&gt;-->
+<!--&lt;!&ndash;                {% endif %}&ndash;&gt;-->
+<!--&lt;!&ndash;            </tr>&ndash;&gt;-->
+<!--&lt;!&ndash;        </thead>&ndash;&gt;-->
+<!--&lt;!&ndash;        <tbody>&ndash;&gt;-->
+<!--&lt;!&ndash;            {% for row in data %}&ndash;&gt;-->
+<!--&lt;!&ndash;                <tr>&ndash;&gt;-->
+<!--&lt;!&ndash;                    {% for value in row.values %}&ndash;&gt;-->
+<!--&lt;!&ndash;                        <td>{{ value }}</td>&ndash;&gt;-->
+<!--&lt;!&ndash;                    {% endfor %}&ndash;&gt;-->
+<!--&lt;!&ndash;                </tr>&ndash;&gt;-->
+<!--&lt;!&ndash;            {% endfor %}&ndash;&gt;-->
+<!--&lt;!&ndash;        </tbody>&ndash;&gt;-->
+<!--&lt;!&ndash;    </table>&ndash;&gt;-->
+<!--&lt;!&ndash;</body>&ndash;&gt;-->
+<!--&lt;!&ndash;</html>&ndash;&gt;-->
+<!--<!DOCTYPE html>-->
+<!--<html>-->
+<!--<head>-->
+<!--    <style>-->
+<!--        table { width: 100%; border-collapse: collapse; }-->
+<!--        th, td { border: 1px solid black; padding: 6px; text-align: left; }-->
+<!--        th { background-color: #f2f2f2; }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <h1>First 50 Records (with Payment & AR Status)</h1>-->
+
+<!--    <div style="margin-bottom: 15px;">-->
+<!--        <a href="{% url 'download_excel' %}" class="btn" style="margin-right: 10px;">📥 Download as Excel</a>-->
+<!--        <a href="{% url 'download_pdf' %}" class="btn">📄 Download as PDF</a>-->
+<!--    </div>-->
+
+<!--    <table border="1">-->
+<!--        <thead>-->
+<!--            <tr>-->
+<!--                {% if data %}-->
+<!--                    {% for key in data.0.keys %}-->
+<!--                        <th>{{ key }}</th>-->
+<!--                    {% endfor %}-->
+<!--                {% endif %}-->
+<!--            </tr>-->
+<!--        </thead>-->
+<!--        <tbody>-->
+<!--            {% for row in data %}-->
+<!--                <tr>-->
+<!--                    {% for value in row.values %}-->
+<!--                        <td>{{ value }}</td>-->
+<!--                    {% endfor %}-->
+<!--                </tr>-->
+<!--            {% endfor %}-->
+<!--        </tbody>-->
+<!--    </table>-->
+<!--</body>-->
+
+<!--</html>-->
+
+
+
+<!--<!DOCTYPE html>-->
+<!--<html>-->
+<!--<head>-->
+<!--    <title>Test Display</title>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <h2>Processed Data Preview</h2>-->
+<!--        <div style="margin-bottom: 15px;">-->
+<!--        <a href="{% url 'download_excel' %}" class="btn" style="margin-right: 10px;">📥 Download as Excel</a>-->
+<!--        <a href="{% url 'download_pdf' %}" class="btn">📄 Download as PDF</a>-->
+<!--    </div>-->
+
+<!--    <table border="1">-->
+<!--        <thead>-->
+<!--            <tr>-->
+<!--                {% for key in data.0.keys %}-->
+<!--                    <th>{{ key }}</th>-->
+<!--                {% endfor %}-->
+<!--            </tr>-->
+<!--        </thead>-->
+<!--        <tbody>-->
+<!--            {% for row in data %}-->
+<!--                <tr>-->
+<!--                    {% for val in row.values %}-->
+<!--                        <td>{{ val }}</td>-->
+<!--                    {% endfor %}-->
+<!--                </tr>-->
+<!--            {% endfor %}-->
+<!--        </tbody>-->
+<!--    </table>-->
+<!--</body>-->
+<!--</html>-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Processed Data Preview</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f9f9fb;
+            color: #333;
+            padding: 40px;
+            margin: 0;
+        }
+
+        h2 {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+            background-color: #2c3e50;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            background-color: #34495e;
+        }
+
+        .actions {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        table {
+            width: 90%;
+            margin: 0 auto;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.08);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        thead {
+            background-color: #2c3e50;
+            color: white;
+        }
+
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+<!--        tr:hover {-->
+<!--            background-color: #f0f8ff;-->
+<!--        }-->
+    </style>
+</head>
+<body>
+
+    <h2>Processed Data Preview</h2>
+
+    <div class="actions">
+        <a href="{% url 'download_excel' %}" class="btn">📥 Download as Excel</a>
+        <a href="{% url 'download_pdf' %}" class="btn">📄 Download as PDF</a>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                {% for key in data.0.keys %}
+                    <th>{{ key }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+                <tr>
+                    {% for val in row.values %}
+                        <td>{{ val }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>

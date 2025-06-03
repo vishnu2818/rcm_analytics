@@ -1,0 +1,144 @@
+<!--<!DOCTYPE html>-->
+<!--<html>-->
+<!--<head>-->
+<!--    <title>Dashboard</title>-->
+<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <h1>Dashboard</h1>-->
+<!--    <p><strong>Total Records:</strong> {{ total_records }}</p>-->
+
+<!--    <div style="width: 45%; float: left;">-->
+<!--        <h2>Payment Status Breakdown</h2>-->
+<!--        <canvas id="paymentChart"></canvas>-->
+<!--    </div>-->
+
+<!--    <div style="width: 45%; float: right;">-->
+<!--        <h2>AR Status Breakdown</h2>-->
+<!--        <canvas id="arChart"></canvas>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        const paymentData = {{ payment_counts|safe }};-->
+<!--        const arData = {{ ar_counts|safe }};-->
+
+<!--        const paymentCtx = document.getElementById('paymentChart').getContext('2d');-->
+<!--        const arCtx = document.getElementById('arChart').getContext('2d');-->
+
+<!--        new Chart(paymentCtx, {-->
+<!--            type: 'pie',-->
+<!--            data: {-->
+<!--                labels: Object.keys(paymentData),-->
+<!--                datasets: [{-->
+<!--                    label: 'Payment Status',-->
+<!--                    data: Object.values(paymentData),-->
+<!--                    backgroundColor: [-->
+<!--                        '#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#607D8B'-->
+<!--                    ]-->
+<!--                }]-->
+<!--            }-->
+<!--        });-->
+
+<!--        new Chart(arCtx, {-->
+<!--            type: 'bar',-->
+<!--            data: {-->
+<!--                labels: Object.keys(arData),-->
+<!--                datasets: [{-->
+<!--                    label: 'AR Status',-->
+<!--                    data: Object.values(arData),-->
+<!--                    backgroundColor: '#3f51b5'-->
+<!--                }]-->
+<!--            },-->
+<!--            options: {-->
+<!--                indexAxis: 'y'-->
+<!--            }-->
+<!--        });-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            color: #333;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .chart-container canvas {
+            width: 48%;
+            height: 300px;
+        }
+        .summary-box {
+            margin-bottom: 20px;
+        }
+        .summary-box p {
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dashboard</h1>
+    <p><strong>Total Claims:</strong> {{ total_claims }}</p>
+    <p><strong>Total Net Charges:</strong> ${{ net_charges }}</p>
+    <p><strong>Total Payments:</strong> ${{ total_payments }}</p>
+    <p><strong>Total Balance Due:</strong> ${{ total_balance }}</p>
+    <p><strong>Average Days in AR:</strong> {{ avg_ar_days }}</p>
+
+    <div class="chart-container">
+        <div>
+            <h2>Payment Status Breakdown</h2>
+            <canvas id="paymentChart"></canvas>
+        </div>
+        <div>
+            <h2>AR Status Breakdown</h2>
+            <canvas id="arChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const paymentData = {{ payment_counts|safe }};
+        const arData = {{ ar_counts|safe }};
+
+        const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+        const arCtx = document.getElementById('arChart').getContext('2d');
+
+        new Chart(paymentCtx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(paymentData),
+                datasets: [{
+                    label: 'Payment Status',
+                    data: Object.values(paymentData),
+                    backgroundColor: [
+                        '#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#607D8B'
+                    ]
+                }]
+            }
+        });
+
+        new Chart(arCtx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(arData),
+                datasets: [{
+                    label: 'AR Status',
+                    data: Object.values(arData),
+                    backgroundColor: '#3f51b5'
+                }]
+            },
+            options: {
+                indexAxis: 'y'
+            }
+        });
+    </script>
+</body>
+</html>
