@@ -1,0 +1,25 @@
+<h2>Confirm Import</h2>
+<form method="post">
+    {% csrf_token %}
+    <table border="1">
+        <thead>
+            <tr>
+                {% for col in columns %}
+                    <th>{{ col }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+                <tr>
+                    {% for col in columns %}
+                        {% with value=row.col %}
+                            <td>{{ value }}</td>
+                        {% endwith %}
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="submit">Import Data</button>
+</form>

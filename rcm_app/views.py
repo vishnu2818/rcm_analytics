@@ -541,6 +541,7 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 from django.http import HttpResponse
 
+
 def download_excel(request):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -640,11 +641,10 @@ def download_excel(request):
     return response
 
 
-
-
 from django.template.loader import get_template
 from django.http import HttpResponse
 from xhtml2pdf import pisa
+
 
 def download_pdf(request):
     rows = ExcelData.objects.filter(upload__user=request.user)[:50]
@@ -730,7 +730,6 @@ def download_pdf(request):
     if pisa_status.err:
         return HttpResponse('Error generating PDF', status=500)
     return response
-
 
 
 # from collections import Counter, defaultdict
@@ -925,3 +924,171 @@ def send_message(request):
 def user_list(request):
     users = User.objects.exclude(id=request.user.id)
     return render(request, 'user_list.html', {'users': users})
+
+
+# Newly Add code
+
+import difflib
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+
+
+@login_required
+def map_task_fields(request):
+    excel_headers = request.session.get('excel_headers')
+    if not excel_headers:
+        messages.error(request, "No headers found. Please upload a file.")
+        return redirect('upload_file')
+
+    # Model fields
+    model_fields = ['employee_name', 'client_name', 'target', 'ramp_percent']
+
+    # Auto suggest mapping
+    suggested_mapping = {}
+    for header in excel_headers:
+        match = difflib.get_close_matches(header.lower().replace(" ", "_"), model_fields, n=1, cutoff=0.6)
+        suggested_mapping[header] = match[0] if match else ""
+
+    if request.method == 'POST':
+        field_mapping = {}
+        for header in excel_headers:
+            mapped_field = request.POST.get(header)
+            if mapped_field:
+                field_mapping[header] = mapped_field
+
+        request.session['field_mapping'] = field_mapping
+        return redirect('confirm_import')  # You should create this view too
+
+    return render(request, 'map_task_fields.html', {
+        'excel_headers': excel_headers,
+        'model_fields': model_fields,
+        'suggested_mapping': suggested_mapping
+    })
+
+
+import pandas as pd
+from django.core.files.storage import default_storage
+from django.conf import settings
+
+
+@login_required
+def upload_task_file(request):
+    if request.method == 'POST' and request.FILES['excel_file']:
+        file = request.FILES['excel_file']
+        file_path = default_storage.save(f'temp/{file.name}', file)
+        abs_path = default_storage.path(file_path)
+
+        df = pd.read_excel(abs_path)
+        headers = list(df.columns)
+
+        request.session['excel_headers'] = headers
+        request.session['uploaded_file_path'] = abs_path
+
+        return redirect('map_task_fields')
+
+    return render(request, 'upload_task_file.html')
+
+
+import pandas as pd
+from django.shortcuts import render, redirect
+from .models import EmployeeTarget
+
+
+def confirm_import(request):
+    file_path = request.session.get('uploaded_file_path')
+    field_mapping = request.session.get('field_mapping')
+
+    if not file_path or not field_mapping:
+        return redirect('upload_file')
+
+    df = pd.read_excel(file_path)
+
+    # Rename columns based on mapping
+    df = df.rename(columns=field_mapping)
+
+    # Filter only mapped model fields
+    allowed_fields = ['employee_name', 'client_name', 'target', 'ramp_percent']
+    data_to_import = df[[field for field in allowed_fields if field in df.columns]]
+
+    if request.method == 'POST':
+        for _, row in data_to_import.iterrows():
+            EmployeeTarget.objects.create(
+                employee_name=row.get('employee_name', ''),
+                client_name=row.get('client_name', ''),
+                target=row.get('target', 0),
+                ramp_percent=row.get('ramp_percent', 0),
+            )
+        return redirect('dashboard')  # You can define a success page or redirect elsewhere
+
+    return render(request, 'confirm_import.html', {
+        'data': data_to_import.to_dict(orient='records'),
+        'columns': data_to_import.columns
+    })
+
+
+# views.py
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+import csv
+from .models import EmployeeTarget
+from .forms import EmployeeTargetForm
+from django.db.models import Count
+
+
+@login_required
+def employee_target_list(request):
+    targets = EmployeeTarget.objects.all()
+
+    # Export CSV
+    if 'export' in request.GET:
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="employee_targets.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Employee Name', 'Client Name', 'Target', 'Ramp %'])
+        for target in targets:
+            writer.writerow([target.employee_name, target.client_name, target.target, target.ramp_percent])
+        return response
+
+    return render(request, 'employee_target_list.html', {'targets': targets})
+
+
+@login_required
+def employee_target_create(request):
+    form = EmployeeTargetForm(request.POST or None)
+    if form.is_valid():
+        obj = form.save(commit=False)
+        obj.created_by = request.user
+        obj.save()
+        return redirect('employee_target_list')
+    return render(request, 'employee_target_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+def employee_target_update(request, pk):
+    target = get_object_or_404(EmployeeTarget, pk=pk)
+    form = EmployeeTargetForm(request.POST or None, instance=target)
+    if form.is_valid():
+        form.save()
+        return redirect('employee_target_list')
+    return render(request, 'employee_target_form.html', {'form': form, 'action': 'Update'})
+
+
+@login_required
+def employee_target_delete(request, pk):
+    target = get_object_or_404(EmployeeTarget, pk=pk)
+    if request.method == 'POST':
+        target.delete()
+        return redirect('employee_target_list')
+    return render(request, 'employee_target_confirm_delete.html', {'target': target})
+
+
+@login_required
+def employee_target_dashboard(request):
+    # Example dashboard statistics
+    stats = EmployeeTarget.objects.aggregate(
+        total_targets=Count('id'),
+        average_ramp=models.Avg('ramp_percent'),
+    )
+    return render(request, 'employee_target_dashboard.html', {'stats': stats})

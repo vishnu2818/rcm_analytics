@@ -384,7 +384,7 @@
 <div class="sidebar">
     <h2>RCM System</h2>
     <div class="menu-item" onclick="showSection('rcm')">RCM Management</div>
-    <div class="menu-item" onclick="showSection('task')">Task Management</div>
+    <div class="menu-item" onclick="showSection('task')">WFM- Work Flow Management</div>
     <div class="menu-item" onclick="showSection('report')">Reports & Exports</div>
 </div>
 
@@ -438,7 +438,7 @@
 
     <!-- Section 2: Task Management -->
 <div id="task" class="section">
-    <h1>Task Management</h1>
+    <h1>WFM - Work Flow Management</h1>
     <p>Manage task assignments, updates, and uploads</p>
 
     <div class="nav-menu">
@@ -446,14 +446,14 @@
         <div class="nav-card">
             <h2>Upload Tasks</h2>
             <p>Upload task assignments using an Excel file</p>
-<!--            <a href="" class="btn">Upload Excel</a>-->
+            <a href="{% url 'upload_task' %}" class="btn">Upload Excel</a>
         </div>
 
         <!-- View Task Dashboard -->
         <div class="nav-card">
             <h2>Task Dashboard</h2>
             <p>Monitor progress and assigned work</p>
-<!--            <a href="" class="btn">Go to Task Dashboard</a>-->
+            <a href="{% url 'employee_target_list' %}" class="btn">Go to Task Dashboard</a>
         </div>
 
         <!-- Assign User to Task -->

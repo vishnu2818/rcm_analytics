@@ -1,0 +1,31 @@
+<h2>Employee Targets</h2>
+<a href="{% url 'employee_target_create' %}">Create New Target</a> |
+<a href="?export=csv">Export CSV</a>
+
+<table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Employee Name</th>
+            <th>Client Name</th>
+            <th>Target</th>
+            <th>Ramp %</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for target in targets %}
+        <tr>
+            <td>{{ target.employee_name }}</td>
+            <td>{{ target.client_name }}</td>
+            <td>{{ target.target }}</td>
+            <td>{{ target.ramp_percent }}</td>
+            <td>
+                <a href="{% url 'employee_target_update' target.pk %}">Edit</a> |
+                <a href="{% url 'employee_target_delete' target.pk %}">Delete</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">No employee targets found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>

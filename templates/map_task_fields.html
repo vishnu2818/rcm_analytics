@@ -1,0 +1,15 @@
+<form method="post">
+  {% csrf_token %}
+  {% for header in excel_headers %}
+    <label>{{ header }}</label>
+    <select name="{{ header }}">
+      <option value="">--Select--</option>
+      {% for field in model_fields %}
+        <option value="{{ field }}" {% if suggested_mapping.header == field %}selected{% endif %}>
+          {{ field }}
+        </option>
+      {% endfor %}
+    </select><br>
+  {% endfor %}
+  <button type="submit">Confirm Mapping</button>
+</form>

@@ -1,0 +1,8 @@
+<h2>Confirm Delete</h2>
+<p>Are you sure you want to delete target for <strong>{{ target.employee_name }}</strong>?</p>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Confirm</button>
+    <a href="{% url 'employee_target_list' %}">Cancel</a>
+</form>

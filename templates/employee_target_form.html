@@ -1,0 +1,9 @@
+<h2>{{ action }} Employee Target</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">{{ action }}</button>
+</form>
+
+<a href="{% url 'employee_target_list' %}">Back to list</a>

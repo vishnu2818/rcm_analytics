@@ -29,4 +29,13 @@ urlpatterns = [
     path('start_chat/<int:user_id>/', start_chat, name='start_chat'),
     path('users/', user_list, name='user_list'),
 
+    path("upload_task/", upload_task_file, name="upload_task"),
+    path('map_task_fields/', map_task_fields, name='map_task_fields'),
+    path('confirm-import/', confirm_import, name='confirm_import'),
+
+    path('employee-targets/', employee_target_list, name='employee_target_list'),
+    path('employee-targets/create/', employee_target_create, name='employee_target_create'),
+    path('employee-targets/<int:pk>/update/', employee_target_update, name='employee_target_update'),
+    path('employee-targets/<int:pk>/delete/', employee_target_delete, name='employee_target_delete'),
+    path('employee-targets/dashboard/', employee_target_dashboard, name='employee_target_dashboard'),
 ]

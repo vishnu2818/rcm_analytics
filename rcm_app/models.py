@@ -122,3 +122,20 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.sender} at {self.timestamp}"
+
+
+from django.utils import timezone
+
+
+class EmployeeTarget(models.Model):
+    employee_name = models.CharField(max_length=100)
+    client_name = models.CharField(max_length=100, verbose_name="Client Name / Acc Name")
+    target = models.DecimalField(max_digits=10, decimal_places=2)
+    ramp_percent = models.FloatField(default=0.0)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+    def __str__(self):
+        return f"{self.employee_name} - {self.client_name}"

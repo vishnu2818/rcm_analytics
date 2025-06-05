@@ -1,6 +1,7 @@
 # rcm_app/forms.py
 from django.contrib.auth.models import User
 from django import forms
+from .models import EmployeeTarget
 
 
 class ExcelUploadForm(forms.Form):
@@ -21,3 +22,9 @@ class UserRegistrationForm(forms.Form):
         model = User
         fields = ['username', 'email', 'password', 'company_name', 'company_email', 'phone', 'avg_claim_rate_per_month',
                   'heard_about_us']
+
+
+class EmployeeTargetForm(forms.ModelForm):
+    class Meta:
+        model = EmployeeTarget
+        fields = ['employee_name', 'client_name', 'target', 'ramp_percent']

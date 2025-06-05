@@ -13,6 +13,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 admin.site.register(Profile, UserProfileAdmin)
 admin.site.register(ExcelData)
 admin.site.register(ExcelUpload)
+admin.site.register(EmployeeTarget)
 
 
 # class ExcelDataInline(admin.TabularInline):
