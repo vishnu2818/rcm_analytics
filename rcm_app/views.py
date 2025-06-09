@@ -924,23 +924,6 @@ from django.core.files.storage import default_storage
 from .models import Employee, ExcelData
 
 
-# @login_required
-# def upload_task_file(request):
-#     if request.method == 'POST' and request.FILES.get('excel_file'):
-#         file = request.FILES['excel_file']
-#         file_path = default_storage.save(f'temp/{file.name}', file)
-#         abs_path = default_storage.path(file_path)
-#
-#         df = pd.read_excel(abs_path)
-#         headers = list(df.columns)
-#
-#         request.session['excel_headers'] = headers
-#         request.session['uploaded_exceldata_path'] = abs_path
-#
-#         return redirect('map_task_fields')
-#
-#     return render(request, 'upload_task_file.html')
-
 @login_required
 def upload_task_file(request):
     if request.method == 'POST' and request.FILES.get('excel_file'):
@@ -949,23 +932,40 @@ def upload_task_file(request):
         abs_path = default_storage.path(file_path)
 
         df = pd.read_excel(abs_path)
-        row_count = len(df)
-        columns = list(df.columns)
+        headers = list(df.columns)
 
-        # Create ExcelUpload record with required fields
-        excel_upload = ExcelUpload.objects.create(
-            user=request.user,
-            file_name=file.name,
-            row_count=row_count,
-            columns=columns
-        )
-        request.session['current_upload_id'] = excel_upload.id
+        request.session['excel_headers'] = headers
         request.session['uploaded_exceldata_path'] = abs_path
 
-        # You probably want to redirect to field mapping or confirmation
-        return redirect('map_task_fields')  # or your next step URL
+        return redirect('map_task_fields')
 
     return render(request, 'upload_task_file.html')
+
+# @login_required
+# def upload_task_file(request):
+#     if request.method == 'POST' and request.FILES.get('excel_file'):
+#         file = request.FILES['excel_file']
+#         file_path = default_storage.save(f'temp/{file.name}', file)
+#         abs_path = default_storage.path(file_path)
+#
+#         df = pd.read_excel(abs_path)
+#         row_count = len(df)
+#         columns = list(df.columns)
+#
+#         # Create ExcelUpload record with required fields
+#         excel_upload = ExcelUpload.objects.create(
+#             user=request.user,
+#             file_name=file.name,
+#             row_count=row_count,
+#             columns=columns
+#         )
+#         request.session['current_upload_id'] = excel_upload.id
+#         request.session['uploaded_exceldata_path'] = abs_path
+#
+#         # You probably want to redirect to field mapping or confirmation
+#         return redirect('https://www.youtube.com/')  # or your next step URL
+#
+#     return render(request, 'upload_task_file.html')
 
 
 @login_required
