@@ -1,0 +1,28 @@
+<h2>Employee Task Dashboard</h2>
+
+<table border="1" cellspacing="0" cellpadding="8">
+  <tr>
+    <th>Employee</th>
+    <th>Email</th>
+    <th>Department</th>
+    <th>Target</th>
+    <th>Ramp %</th>
+    <th>Effective Target</th>
+    <th>Assigned Tasks</th>
+    <th>Remaining</th>
+    <th>Actions</th>
+  </tr>
+  {% for row in dashboard_data %}
+  <tr>
+    <td>{{ row.employee.employee_name }}</td>
+    <td>{{ row.employee.email }}</td>
+    <td>{{ row.employee.department }}</td>
+    <td>{{ row.employee.target }}</td>
+    <td>{{ row.employee.ramp_percent }}</td>
+    <td>{{ row.effective_target }}</td>
+    <td>{{ row.assigned_count }}</td>
+    <td>{{ row.remaining }}</td>
+    <td><a href="{% url 'view_tasks_by_employee' row.employee.id %}">View Tasks</a></td>
+  </tr>
+  {% endfor %}
+</table>

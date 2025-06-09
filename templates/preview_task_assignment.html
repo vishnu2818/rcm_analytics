@@ -1,0 +1,26 @@
+<h2>Task Assignment Preview</h2>
+<p>Total Tasks Available: {{ total_tasks }}</p>
+<form method="POST">
+  {% csrf_token %}
+  <table border="1">
+    <tr>
+      <th>Employee</th>
+      <th>Target</th>
+      <th>Ramp %</th>
+      <th>Effective Task Count (Target * Ramp %)</th>
+      <th>Assign Task Count (You can alter)</th>
+    </tr>
+    {% for emp in preview_data %}
+    <tr>
+      <td>{{ emp.name }}</td>
+      <td>{{ emp.target }}</td>
+      <td>{{ emp.ramp }}</td>
+      <td>{{ emp.effective }}</td>
+      <td>
+        <input type="number" name="emp_{{ emp.id }}" value="{{ emp.effective }}" min="0" max="{{ total_tasks }}">
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <button type="submit">Assign Tasks</button>
+</form>

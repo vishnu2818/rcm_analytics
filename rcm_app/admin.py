@@ -10,11 +10,17 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'company_name', 'company_email', 'phone', 'avg_claim_rate_per_month', 'heard_about_us')
 
 
-admin.site.register(Profile, UserProfileAdmin)
-admin.site.register(ExcelData)
-admin.site.register(ExcelUpload)
-admin.site.register(EmployeeTarget)
+@admin.register(ExcelData)
+class ExcelDataAdmin(admin.ModelAdmin):
+    list_display = ('company', 'assigned_to', 'status')
+    list_filter = ('assigned_to', 'status')
+    search_fields = ('assigned_to__employee_name', 'customer', 'company')
 
+
+admin.site.register(Profile, UserProfileAdmin)
+# admin.site.register(ExcelData)
+admin.site.register(ExcelUpload)
+admin.site.register(Employee)
 
 # class ExcelDataInline(admin.TabularInline):
 #     model = ExcelData

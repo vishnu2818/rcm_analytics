@@ -1,15 +1,24 @@
 <form method="post">
   {% csrf_token %}
-  {% for header in excel_headers %}
-    <label>{{ header }}</label>
-    <select name="{{ header }}">
-      <option value="">--Select--</option>
-      {% for field in model_fields %}
-        <option value="{{ field }}" {% if suggested_mapping.header == field %}selected{% endif %}>
-          {{ field }}
-        </option>
-      {% endfor %}
-    </select><br>
-  {% endfor %}
+  <table border="1" cellpadding="8">
+    <tr>
+      <th>Excel Header</th>
+      <th>Map to Model Field</th>
+    </tr>
+    {% for item in header_mappings %}
+    <tr>
+      <td>{{ item.header }}</td>
+      <td>
+        <select name="{{ item.header }}">
+          <option value="">-- Select Field --</option>
+          {% for field in model_fields %}
+            <option value="{{ field }}" {% if field == item.suggested %}selected{% endif %}>{{ field }}</option>
+          {% endfor %}
+        </select>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <br>
   <button type="submit">Confirm Mapping</button>
 </form>

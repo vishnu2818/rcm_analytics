@@ -131,12 +131,9 @@ def convert_to_serializable(value):
 # recently modified code
 
 from decimal import Decimal, InvalidOperation
-from datetime import datetime
-import pandas as pd
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
 from .forms import ExcelUploadForm
-from .models import ExcelUpload, ExcelData
+from .models import ExcelUpload
 
 
 @login_required
@@ -426,11 +423,6 @@ def classify_claim_status(row, payment_status, ar_status):
     return "Unclassified", debug_steps
 
 
-from .models import ExcelData
-
-from django.shortcuts import render
-from django.http import HttpResponse
-from .models import ExcelData
 from django.forms.models import model_to_dict
 
 
@@ -539,7 +531,6 @@ def test_display_data_verbose(request):
 
 import openpyxl
 from openpyxl.utils import get_column_letter
-from django.http import HttpResponse
 
 
 def download_excel(request):
@@ -642,7 +633,6 @@ def download_excel(request):
 
 
 from django.template.loader import get_template
-from django.http import HttpResponse
 from xhtml2pdf import pisa
 
 
@@ -801,7 +791,6 @@ def download_pdf(request):
 
 from collections import Counter, defaultdict
 from datetime import datetime
-from django.shortcuts import render
 
 
 def dashboard_view(request):
@@ -881,7 +870,6 @@ def dashboard_view(request):
     })
 
 
-from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .models import ChatRoom, Message
@@ -927,11 +915,57 @@ def user_list(request):
 
 
 # Newly Add code
-
 import difflib
+import pandas as pd
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.files.storage import default_storage
+from .models import Employee, ExcelData
+
+
+# @login_required
+# def upload_task_file(request):
+#     if request.method == 'POST' and request.FILES.get('excel_file'):
+#         file = request.FILES['excel_file']
+#         file_path = default_storage.save(f'temp/{file.name}', file)
+#         abs_path = default_storage.path(file_path)
+#
+#         df = pd.read_excel(abs_path)
+#         headers = list(df.columns)
+#
+#         request.session['excel_headers'] = headers
+#         request.session['uploaded_exceldata_path'] = abs_path
+#
+#         return redirect('map_task_fields')
+#
+#     return render(request, 'upload_task_file.html')
+
+@login_required
+def upload_task_file(request):
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        file = request.FILES['excel_file']
+        file_path = default_storage.save(f'temp/{file.name}', file)
+        abs_path = default_storage.path(file_path)
+
+        df = pd.read_excel(abs_path)
+        row_count = len(df)
+        columns = list(df.columns)
+
+        # Create ExcelUpload record with required fields
+        excel_upload = ExcelUpload.objects.create(
+            user=request.user,
+            file_name=file.name,
+            row_count=row_count,
+            columns=columns
+        )
+        request.session['current_upload_id'] = excel_upload.id
+        request.session['uploaded_exceldata_path'] = abs_path
+
+        # You probably want to redirect to field mapping or confirmation
+        return redirect('map_task_fields')  # or your next step URL
+
+    return render(request, 'upload_task_file.html')
 
 
 @login_required
@@ -939,92 +973,348 @@ def map_task_fields(request):
     excel_headers = request.session.get('excel_headers')
     if not excel_headers:
         messages.error(request, "No headers found. Please upload a file.")
-        return redirect('upload_file')
+        return redirect('upload_task')
 
-    # Model fields
-    model_fields = ['employee_name', 'client_name', 'target', 'ramp_percent']
+    model_fields = [f.name for f in ExcelData._meta.fields if f.name not in ['id', 'assigned_to']]
 
-    # Auto suggest mapping
-    suggested_mapping = {}
+    header_mappings = []
     for header in excel_headers:
-        match = difflib.get_close_matches(header.lower().replace(" ", "_"), model_fields, n=1, cutoff=0.6)
-        suggested_mapping[header] = match[0] if match else ""
+        header_key = header.lower().replace(" ", "_")
+        match = difflib.get_close_matches(header_key, model_fields, n=1, cutoff=0.6)
+        suggested = match[0] if match else ""
+        header_mappings.append({
+            'header': header,
+            'suggested': suggested
+        })
 
     if request.method == 'POST':
         field_mapping = {}
-        for header in excel_headers:
-            mapped_field = request.POST.get(header)
+        for item in header_mappings:
+            mapped_field = request.POST.get(item['header'])
             if mapped_field:
-                field_mapping[header] = mapped_field
+                field_mapping[item['header']] = mapped_field
 
-        request.session['field_mapping'] = field_mapping
-        return redirect('confirm_import')  # You should create this view too
+        request.session['exceldata_field_mapping'] = field_mapping
+        return redirect('confirm_exceldata_import')
 
     return render(request, 'map_task_fields.html', {
-        'excel_headers': excel_headers,
+        'header_mappings': header_mappings,
         'model_fields': model_fields,
-        'suggested_mapping': suggested_mapping
     })
 
 
-import pandas as pd
-from django.core.files.storage import default_storage
-from django.conf import settings
+# from datetime import datetime, date  # ✅ use this style
+#
+#
+# def safe_date(val):
+#     if val is None or (isinstance(val, float) and pd.isna(val)):
+#         return None
+#     if isinstance(val, str):
+#         try:
+#             return datetime.strptime(val, "%Y-%m-%d").date()
+#         except ValueError:
+#             return None
+#     if isinstance(val, datetime):
+#         return val.date()
+#     if isinstance(val, date):
+#         return val
+#     return None
+
+
+from datetime import datetime
+from django.utils.dateparse import parse_date
+
+
+def safe_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    elif isinstance(value, str):
+        return parse_date(value)
+    return None
 
 
 @login_required
-def upload_task_file(request):
-    if request.method == 'POST' and request.FILES['excel_file']:
-        file = request.FILES['excel_file']
-        file_path = default_storage.save(f'temp/{file.name}', file)
-        abs_path = default_storage.path(file_path)
+def confirm_exceldata_import(request):
+    file_path = request.session.get('uploaded_exceldata_path')
+    field_mapping = request.session.get('exceldata_field_mapping')
+    upload_id = request.session.get('current_upload_id')  # get saved upload id
 
-        df = pd.read_excel(abs_path)
-        headers = list(df.columns)
+    if not file_path or not field_mapping or not upload_id:
+        return redirect('upload_task')
 
-        request.session['excel_headers'] = headers
-        request.session['uploaded_file_path'] = abs_path
-
-        return redirect('map_task_fields')
-
-    return render(request, 'upload_task_file.html')
-
-
-import pandas as pd
-from django.shortcuts import render, redirect
-from .models import EmployeeTarget
-
-
-def confirm_import(request):
-    file_path = request.session.get('uploaded_file_path')
-    field_mapping = request.session.get('field_mapping')
-
-    if not file_path or not field_mapping:
-        return redirect('upload_file')
+    excel_upload = get_object_or_404(ExcelUpload, id=upload_id)
 
     df = pd.read_excel(file_path)
-
-    # Rename columns based on mapping
     df = df.rename(columns=field_mapping)
 
-    # Filter only mapped model fields
-    allowed_fields = ['employee_name', 'client_name', 'target', 'ramp_percent']
-    data_to_import = df[[field for field in allowed_fields if field in df.columns]]
+    allowed_fields = [f.name for f in ExcelData._meta.fields if f.name not in ['id', 'assigned_to']]
+    data_to_import = df[[col for col in df.columns if col in allowed_fields]]
+    task_pool = data_to_import.to_dict(orient='records')
+
+    employees = Employee.objects.all()
 
     if request.method == 'POST':
-        for _, row in data_to_import.iterrows():
-            EmployeeTarget.objects.create(
-                employee_name=row.get('employee_name', ''),
-                client_name=row.get('client_name', ''),
-                target=row.get('target', 0),
-                ramp_percent=row.get('ramp_percent', 0),
-            )
-        return redirect('dashboard')  # You can define a success page or redirect elsewhere
+        # Get counts assigned manually per employee from form
+        custom_assignments = {}
+        total_requested = 0
+        for emp in employees:
+            count = int(request.POST.get(f'emp_{emp.id}', 0))
+            custom_assignments[emp] = count
+            total_requested += count
 
-    return render(request, 'confirm_import.html', {
-        'data': data_to_import.to_dict(orient='records'),
-        'columns': data_to_import.columns
+        if total_requested > len(task_pool):
+            messages.error(request, "Assigned task count exceeds total available tasks.")
+            return redirect('confirm_exceldata_import')
+
+        # Assign tasks accordingly
+        assigned_tasks = []
+        assigned_index = 0
+        for emp, count in custom_assignments.items():
+            for _ in range(count):
+                if assigned_index >= len(task_pool):
+                    break
+                row_data = task_pool[assigned_index]
+                assigned_tasks.append((row_data, emp))
+                assigned_index += 1
+
+        # Save to DB
+        date_fields = ['dos', 'aging_date', 'last_event_date', 'import_date', 'last_modified_date']
+        for row_data, emp in assigned_tasks:
+            row_kwargs = {}
+            for field in allowed_fields:
+                value = row_data.get(field)
+                if field in date_fields:
+                    value = safe_date(value)
+                row_kwargs[field] = value
+
+            row_kwargs.pop('upload', None)
+            ExcelData.objects.create(**row_kwargs, upload=excel_upload, assigned_to=emp)
+
+        messages.success(request, f"{len(assigned_tasks)} rows imported & assigned successfully.")
+        return redirect('employee_target_list')
+
+    # Prepare preview data: calculate effective target count by ramp% for each employee
+    preview_data = []
+    for emp in employees:
+        target = emp.target or Decimal(0)
+        ramp = Decimal(emp.ramp_percent or 0)
+        effective = int(target * ramp / 100)
+        preview_data.append({
+            'id': emp.id,
+            'name': emp.employee_name,
+            'target': target,
+            'ramp': ramp,
+            'effective': effective,
+        })
+
+    return render(request, 'preview_task_assignment.html', {
+        'preview_data': preview_data,
+        'total_tasks': len(task_pool),
     })
+
+
+@login_required
+def dashboard(request):
+    # Summarize task count per employee
+    summary = ExcelData.objects.values('assigned_to__employee_name').annotate(task_count=models.Count('id')).order_by(
+        '-task_count')
+
+    return render(request, 'dashboard.html', {
+        'summary': summary
+    })
+
+
+# def confirm_import(request):
+#     file_path = request.session.get('uploaded_file_path')
+#     field_mapping = request.session.get('field_mapping')
+#
+#     if not file_path or not field_mapping:
+#         return redirect('upload_file')
+#
+#     df = pd.read_excel(file_path)
+#
+#     # Rename columns based on mapping
+#     df = df.rename(columns=field_mapping)
+#
+#     # Filter only mapped model fields
+#     allowed_fields = ['employee_name', 'client_name', 'target', 'ramp_percent']
+#     data_to_import = df[[field for field in allowed_fields if field in df.columns]]
+#
+#     if request.method == 'POST':
+#         for _, row in data_to_import.iterrows():
+#             Employee.objects.create(
+#                 employee_name=row.get('employee_name', ''),
+#                 client_name=row.get('client_name', ''),
+#                 target=row.get('target', 0),
+#                 ramp_percent=row.get('ramp_percent', 0),
+#             )
+#         return redirect('dashboard')  # You can define a success page or redirect elsewhere
+#
+#     return render(request, 'confirm_import.html', {
+#         'data': data_to_import.to_dict(orient='records'),
+#         'columns': data_to_import.columns
+#     })
+#
+#
+# from django.contrib.auth.decorators import login_required
+# from django.contrib import messages
+# import difflib
+#
+#
+# @login_required
+# def map_task_fields(request):
+#     excel_headers = request.session.get('excel_headers')
+#     if not excel_headers:
+#         messages.error(request, "No headers found. Please upload a file.")
+#         return redirect('upload_file')
+#
+#     model_fields = [
+#         field.name for field in ExcelData._meta.get_fields()
+#         if not field.auto_created and not field.is_relation and field.name != 'id'
+#     ]
+#
+#     # Auto-suggest mapping
+#     suggested_mapping = {}
+#     for header in excel_headers:
+#         normalized_header = header.lower().replace(" ", "_")
+#         match = difflib.get_close_matches(normalized_header, model_fields, n=1, cutoff=0.6)
+#         suggested_mapping[header] = match[0] if match else ""
+#
+#     # Convert to list of dicts for template
+#     header_mappings = []
+#     for header in excel_headers:
+#         header_mappings.append({
+#             'header': header,
+#             'suggested': suggested_mapping.get(header, '')
+#         })
+#
+#     if request.method == 'POST':
+#         field_mapping = {}
+#         for header in excel_headers:
+#             mapped_field = request.POST.get(header)
+#             if mapped_field:
+#                 field_mapping[header] = mapped_field
+#
+#         request.session['field_mapping'] = field_mapping
+#         return redirect('confirm_exceldata_import')
+#
+#     return render(request, 'map_task_fields.html', {
+#         'header_mappings': header_mappings,
+#         'model_fields': model_fields,
+#     })
+#
+#
+#
+# @login_required
+# def confirm_exceldata_import(request):
+#     file_path = request.session.get('uploaded_exceldata_path')
+#     field_mapping = request.session.get('exceldata_field_mapping')
+#
+#     if not file_path or not field_mapping:
+#         return redirect('upload_exceldata_file')
+#
+#     df = pd.read_excel(file_path)
+#     df = df.rename(columns=field_mapping)
+#
+#     allowed_fields = [f.name for f in ExcelData._meta.fields if f.name not in ['id', 'assigned_to']]
+#     data_to_import = df[[col for col in df.columns if col in allowed_fields]]
+#     task_pool = data_to_import.to_dict(orient='records')
+#
+#     employees = Employee.objects.all()
+#
+#     if request.method == 'POST':
+#         total_task_count = len(task_pool)
+#         custom_assignments = {}
+#
+#         # Get altered task counts from form
+#         for emp in employees:
+#             count = int(request.POST.get(f'emp_{emp.id}', 0))
+#             custom_assignments[emp] = count
+#
+#         # Assign accordingly
+#         assigned_tasks = []
+#         assigned_index = 0
+#         for emp, count in custom_assignments.items():
+#             for _ in range(count):
+#                 if assigned_index >= len(task_pool):
+#                     break
+#                 row_data = task_pool[assigned_index]
+#                 assigned_tasks.append((row_data, emp))
+#                 assigned_index += 1
+#
+#         # Save records
+#         for row_data, emp in assigned_tasks:
+#             row_kwargs = {field: row_data.get(field) for field in allowed_fields}
+#             ExcelData.objects.create(**row_kwargs, assigned_to=emp)
+#
+#         messages.success(request, f"{len(assigned_tasks)} rows imported & assigned successfully.")
+#         return redirect('dashboard')
+#
+#     # GET request → preview assignment plan
+#     preview_data = []
+#     for emp in employees:
+#         target = emp.target or 0
+#         ramp = emp.ramp_percent or 0
+#         effective = int(target * ramp / 100)
+#         preview_data.append({
+#             'id': emp.id,
+#             'name': emp.employee_name,
+#             'target': target,
+#             'ramp': ramp,
+#             'effective': effective,
+#         })
+#
+#     return render(request, 'preview_task_assignment.html', {
+#         'preview_data': preview_data,
+#         'total_tasks': len(task_pool),
+#     })
+#
+#
+#
+# import pandas as pd
+# from django.core.files.storage import default_storage
+#
+#
+# @login_required
+# def upload_task_file(request):
+#     if request.method == 'POST' and request.FILES['excel_file']:
+#         file = request.FILES['excel_file']
+#         file_path = default_storage.save(f'temp/{file.name}', file)
+#         abs_path = default_storage.path(file_path)
+#
+#         df = pd.read_excel(abs_path)
+#         headers = list(df.columns)
+#
+#         request.session['excel_headers'] = headers
+#         request.session['uploaded_file_path'] = abs_path
+#
+#         return redirect('map_task_fields')
+#
+#     return render(request, 'upload_task_file.html')
+#
+#
+# from django.contrib.auth.decorators import login_required
+# from .models import ExcelData
+#
+#
+# @login_required
+# def dashboard(request):
+#     employees = Employee.objects.all()
+#
+#     dashboard_data = []
+#     for emp in employees:
+#         assigned_count = ExcelData.objects.filter(assigned_to=emp).count()
+#         effective_target = int((emp.target or 0) * (emp.ramp_percent or 0) / 100)
+#         dashboard_data.append({
+#             'employee': emp,
+#             'assigned_count': assigned_count,
+#             'effective_target': effective_target,
+#             'remaining': max(effective_target - assigned_count, 0)
+#         })
+#
+#     return render(request, 'task_dashboard.html', {
+#         'dashboard_data': dashboard_data
+#     })
 
 
 # views.py
@@ -1032,14 +1322,14 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 import csv
-from .models import EmployeeTarget
-from .forms import EmployeeTargetForm
+from .models import Employee
+from .forms import EmployeeForm
 from django.db.models import Count
 
 
 @login_required
 def employee_target_list(request):
-    targets = EmployeeTarget.objects.all()
+    targets = Employee.objects.all()
 
     # Export CSV
     if 'export' in request.GET:
@@ -1056,7 +1346,7 @@ def employee_target_list(request):
 
 @login_required
 def employee_target_create(request):
-    form = EmployeeTargetForm(request.POST or None)
+    form = EmployeeForm(request.POST or None)
     if form.is_valid():
         obj = form.save(commit=False)
         obj.created_by = request.user
@@ -1067,8 +1357,8 @@ def employee_target_create(request):
 
 @login_required
 def employee_target_update(request, pk):
-    target = get_object_or_404(EmployeeTarget, pk=pk)
-    form = EmployeeTargetForm(request.POST or None, instance=target)
+    target = get_object_or_404(Employee, pk=pk)
+    form = EmployeeForm(request.POST or None, instance=target)
     if form.is_valid():
         form.save()
         return redirect('employee_target_list')
@@ -1077,7 +1367,7 @@ def employee_target_update(request, pk):
 
 @login_required
 def employee_target_delete(request, pk):
-    target = get_object_or_404(EmployeeTarget, pk=pk)
+    target = get_object_or_404(Employee, pk=pk)
     if request.method == 'POST':
         target.delete()
         return redirect('employee_target_list')
@@ -1087,7 +1377,7 @@ def employee_target_delete(request, pk):
 @login_required
 def employee_target_dashboard(request):
     # Example dashboard statistics
-    stats = EmployeeTarget.objects.aggregate(
+    stats = Employee.objects.aggregate(
         total_targets=Count('id'),
         average_ramp=models.Avg('ramp_percent'),
     )

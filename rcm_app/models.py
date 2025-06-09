@@ -30,77 +30,63 @@ class ExcelUpload(models.Model):
 
 class ExcelData(models.Model):
     upload = models.ForeignKey(ExcelUpload, on_delete=models.CASCADE, related_name='rows')
-    # data = models.JSONField()
-
-    company = models.CharField(max_length=100, default='Unknown')
-    dos = models.DateField(verbose_name="Date of Service", default=date(2000, 1, 1))
-    dosym = models.CharField(max_length=7, default='Unknown')
-    run_number = models.CharField(max_length=20, default='Unknown')
-    inc_number = models.CharField(max_length=20, default='Unknown')
+    company = models.CharField(max_length=100, null=True, blank=True)
+    dos = models.DateField(null=True, blank=True, verbose_name="Date of Service")
+    dosym = models.CharField(max_length=7, null=True, blank=True)
+    run_number = models.CharField(max_length=20, null=True, blank=True)
+    inc_number = models.CharField(max_length=20, null=True, blank=True)
     customer = models.CharField(max_length=100, null=True, blank=True)
     dob = models.CharField(max_length=10, null=True, blank=True)
-    status = models.CharField(max_length=50, default='Unknown')
-
-    prim_pay = models.CharField(max_length=100, default='Unknown')
-    pri_payor_category = models.CharField(max_length=100, default='Unknown')
-    cur_pay = models.CharField(max_length=100, default='Unknown')
-    cur_pay_category = models.CharField(max_length=100, default='Unknown')
-
-    schedule_track = models.CharField(max_length=100, default='Unknown')
-    event_step = models.CharField(max_length=100, default='Unknown')
-    coll = models.CharField(max_length=10, default='NO')
-
-    gross_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    contr_allow = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    net_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    revenue_adjustments = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    payments = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    write_offs = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    refunds = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    balance_due = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-
-    aging_date = models.DateField(default=date(2000, 1, 1))
-    last_event_date = models.DateField(default=date(2000, 1, 1))
-
+    status = models.CharField(max_length=50, null=True, blank=True)
+    prim_pay = models.CharField(max_length=100, null=True, blank=True)
+    pri_payor_category = models.CharField(max_length=100, null=True, blank=True)
+    cur_pay = models.CharField(max_length=100, null=True, blank=True)
+    cur_pay_category = models.CharField(max_length=100, null=True, blank=True)
+    schedule_track = models.CharField(max_length=100, null=True, blank=True)
+    event_step = models.CharField(max_length=100, null=True, blank=True)
+    coll = models.CharField(max_length=10, null=True, blank=True)
+    gross_charges = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    contr_allow = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    net_charges = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    revenue_adjustments = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    payments = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    write_offs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    refunds = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    balance_due = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    aging_date = models.DateField(null=True, blank=True)
+    last_event_date = models.DateField(null=True, blank=True)
     ordering_facility = models.CharField(max_length=100, null=True, blank=True)
-    vehicle = models.CharField(max_length=50, default='Unknown')
-    call_type = models.CharField(max_length=50, default='Unknown')
-    priority = models.CharField(max_length=50, default='Unknown')
-    call_type_priority = models.CharField(max_length=100, default='Unknown')
-
-    primary_icd = models.CharField(max_length=20, default='Unknown')
-    loaded_miles = models.DecimalField(max_digits=6, decimal_places=1, default=0.0)
-
+    vehicle = models.CharField(max_length=50, null=True, blank=True)
+    call_type = models.CharField(max_length=50, null=True, blank=True)
+    priority = models.CharField(max_length=50, null=True, blank=True)
+    call_type_priority = models.CharField(max_length=100, null=True, blank=True)
+    primary_icd = models.CharField(max_length=20, null=True, blank=True)
+    loaded_miles = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
     pickup_facility = models.CharField(max_length=100, null=True, blank=True)
-    pickup_modifier = models.CharField(max_length=10, default='Unknown')
+    pickup_modifier = models.CharField(max_length=10, null=True, blank=True)
     pickup_address = models.CharField(max_length=255, null=True, blank=True)
-    pickup_city = models.CharField(max_length=100, default='Unknown')
-    pickup_state = models.CharField(max_length=2, default='NA')
-    pickup_zip = models.CharField(max_length=10, default='00000')
-
-    dropoff_facility = models.CharField(max_length=100, default='Unknown')
-    dropoff_modifier = models.CharField(max_length=10, default='Unknown')
+    pickup_city = models.CharField(max_length=100, null=True, blank=True)
+    pickup_state = models.CharField(max_length=2, null=True, blank=True)
+    pickup_zip = models.CharField(max_length=10, null=True, blank=True)
+    dropoff_facility = models.CharField(max_length=100, null=True, blank=True)
+    dropoff_modifier = models.CharField(max_length=10, null=True, blank=True)
     dropoff_address = models.CharField(max_length=255, null=True, blank=True)
-    dropoff_city = models.CharField(max_length=100, default='Unknown')
-    dropoff_state = models.CharField(max_length=2, default='NA')
-    dropoff_zip = models.CharField(max_length=15, default='00000')
-
-    import_date = models.DateField(default=date(2000, 1, 1))
-    import_date_ym = models.CharField(max_length=7, default='Unknown')
-
-    med_nec = models.CharField(max_length=10, default='Unknown')
+    dropoff_city = models.CharField(max_length=100, null=True, blank=True)
+    dropoff_state = models.CharField(max_length=2, null=True, blank=True)
+    dropoff_zip = models.CharField(max_length=15, null=True, blank=True)
+    import_date = models.DateField(null=True, blank=True)
+    import_date_ym = models.CharField(max_length=7, null=True, blank=True)
+    med_nec = models.CharField(max_length=10, null=True, blank=True)
     accident_type = models.CharField(max_length=50, null=True, blank=True)
-
     assigned_group = models.CharField(max_length=100, null=True, blank=True)
-    location = models.CharField(max_length=100, default='Unknown')
-
-    last_modified_date = models.DateField(default=date(2000, 1, 1))
-    last_modified_by = models.CharField(max_length=100, default='Unknown')
-
-    team = models.CharField(max_length=100, default='Unknown')
-    job = models.CharField(max_length=50, default='Unknown')
-    emsmart_id = models.CharField(max_length=20, default='Unknown')
+    location = models.CharField(max_length=100, null=True, blank=True)
+    last_modified_date = models.DateField(null=True, blank=True)
+    last_modified_by = models.CharField(max_length=100, null=True, blank=True)
+    team = models.CharField(max_length=100, null=True, blank=True)
+    job = models.CharField(max_length=50, null=True, blank=True)
+    emsmart_id = models.CharField(max_length=20, null=True, blank=True)
     prior_auth = models.CharField(max_length=100, null=True, blank=True)
+    assigned_to = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return f"Row from {self.upload.file_name}"
@@ -127,15 +113,17 @@ class Message(models.Model):
 from django.utils import timezone
 
 
-class EmployeeTarget(models.Model):
+class Employee(models.Model):
     employee_name = models.CharField(max_length=100)
     client_name = models.CharField(max_length=100, verbose_name="Client Name / Acc Name")
     target = models.DecimalField(max_digits=10, decimal_places=2)
     ramp_percent = models.FloatField(default=0.0)
 
+    email = models.EmailField(unique=True, null=True, blank=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
+
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
 
     def __str__(self):
         return f"{self.employee_name} - {self.client_name}"

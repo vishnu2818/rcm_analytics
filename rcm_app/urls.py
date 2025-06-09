@@ -31,7 +31,9 @@ urlpatterns = [
 
     path("upload_task/", upload_task_file, name="upload_task"),
     path('map_task_fields/', map_task_fields, name='map_task_fields'),
-    path('confirm-import/', confirm_import, name='confirm_import'),
+    path('confirm_exceldata_import/', confirm_exceldata_import, name='confirm_exceldata_import'),
+    path('dashboard/', dashboard, name='dashboard'),
+
 
     path('employee-targets/', employee_target_list, name='employee_target_list'),
     path('employee-targets/create/', employee_target_create, name='employee_target_create'),
