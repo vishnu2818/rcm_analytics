@@ -1,15 +1,21 @@
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+import csv
+import numpy as np
+from .forms import EmployeeForm
+from django.db.models import Count
+from django.contrib.auth import login
+from .forms import UserRegistrationForm
+from .models import *
+import re
 
 
 @login_required
 def home(request):
     uploads = ExcelUpload.objects.filter(user=request.user).order_by('-uploaded_at')
     return render(request, 'home.html', {'uploads': uploads})
-
-
-from django.contrib.auth import login
-from .forms import UserRegistrationForm
-from .models import *
 
 
 def register_view(request):
@@ -41,9 +47,6 @@ def register_view(request):
     return render(request, 'register.html', {'form': form})
 
 
-import re
-
-
 def sanitize_column_name(col_name):
     """Sanitize column name to avoid issues with SQL syntax."""
     return re.sub(r'\W|^(?=\d)', '_', col_name)
@@ -58,9 +61,6 @@ def convert_to_sql_compatible(value):
     if isinstance(value, (int, float)):
         return value
     return str(value)
-
-
-import numpy as np
 
 
 def convert_to_serializable(value):
@@ -78,56 +78,6 @@ def convert_to_serializable(value):
     return value
 
 
-# @login_required
-# def upload_excel(request):
-#     if request.method == 'POST':
-#         form = ExcelUploadForm(request.POST, request.FILES)
-#         if form.is_valid():
-#             try:
-#                 file = request.FILES['file']
-#
-#                 # Read Excel file
-#                 df = pd.read_excel(file, engine='openpyxl')
-#
-#                 # Convert all values to JSON-serializable format
-#                 serializable_data = []
-#                 for _, row in df.iterrows():
-#                     serializable_row = {col: convert_to_serializable(row[col]) for col in df.columns}
-#                     serializable_data.append(serializable_row)
-#
-#                 # Create ExcelUpload object with current user
-#                 upload = ExcelUpload.objects.create(
-#                     user=request.user,  # Assign user
-#                     file_name=file.name,
-#                     row_count=len(df),
-#                     columns={col: str(df[col].dtype) for col in df.columns}
-#                 )
-#
-#                 # Bulk insert ExcelData
-#                 ExcelData.objects.bulk_create([
-#                     ExcelData(upload=upload, data=row_data)
-#                     for row_data in serializable_data
-#                 ])
-#
-#                 return render(request, 'upload_success.html', {
-#                     'upload': upload,
-#                     'columns': df.columns.tolist(),
-#                     'row_count': len(df)
-#                 })
-#
-#             except Exception as e:
-#                 error_msg = str(e)
-#                 if 'No such file or directory' in error_msg:
-#                     error_msg = "Please select a file to upload."
-#                 return render(request, 'upload.html', {
-#                     'form': form,
-#                     'error': f'Error processing file: {error_msg}'
-#                 })
-#     else:
-#         form = ExcelUploadForm()
-#
-#     return render(request, 'upload.html', {'form': form})
-
 # recently modified code
 
 from decimal import Decimal, InvalidOperation
@@ -135,6 +85,16 @@ from django.contrib.auth.decorators import login_required
 from .forms import ExcelUploadForm
 from .models import ExcelUpload
 
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import ExcelUpload, ExcelData
+from .forms import ExcelUploadForm
+from .utils import parse_date, parse_decimal, convert_to_serializable  # Ensure these are defined
+import pandas as pd
+
+
+from django.contrib import messages
+from datetime import datetime
 
 @login_required
 def upload_excel(request):
@@ -143,112 +103,105 @@ def upload_excel(request):
         if form.is_valid():
             try:
                 file = request.FILES['file']
+                print("📂 File received:", file.name)
+
                 df = pd.read_excel(file, engine='openpyxl')
+                print("📊 Columns:", df.columns.tolist())
+                print("🔢 Row count:", len(df))
 
-                # Convert all values to JSON-serializable format
-                serializable_data = []
-                for _, row in df.iterrows():
-                    serializable_row = {col: convert_to_serializable(row[col]) for col in df.columns}
-                    serializable_data.append(serializable_row)
+                # Convert all rows to JSON-serializable format
+                serializable_data = [
+                    {col: convert_to_serializable(row[col]) for col in df.columns}
+                    for _, row in df.iterrows()
+                ]
 
+                # Save upload metadata
                 upload = ExcelUpload.objects.create(
                     user=request.user,
                     file_name=file.name,
                     row_count=len(df),
                     columns={col: str(df[col].dtype) for col in df.columns}
                 )
+                print(f"✅ ExcelUpload created: ID={upload.id}, Rows={upload.row_count}")
 
                 created_objects = []
-                for row_data in serializable_data:
-                    obj = ExcelData(
-                        upload=upload,
 
-                        company=row_data.get("Company", "Unknown"),
-                        dos=parse_date(row_data.get("DOS")),
-                        dosym=row_data.get("DOSYM", "Unknown"),
-                        run_number=row_data.get("Run #", "Unknown"),
-                        inc_number=row_data.get("Inc #t", "Unknown"),
-                        customer=row_data.get("Cust.", None),
-                        dob=row_data.get("DOB", None),
-                        status=row_data.get("Status", "Unknown"),
-
-                        prim_pay=row_data.get("Prim Pay", "Unknown"),
-                        pri_payor_category=row_data.get("Pri Payor Category", "Unknown"),
-                        cur_pay=row_data.get("Cur Pay", "Unknown"),
-                        cur_pay_category=row_data.get("Cur Pay Category", "Unknown"),
-
-                        schedule_track=row_data.get("Schedule/Track", "Unknown"),
-                        event_step=row_data.get("Event/Step", "Unknown"),
-                        coll=row_data.get("Coll", "NO"),
-
-                        gross_charges=parse_decimal(row_data.get("Gross Charges")),
-                        contr_allow=parse_decimal(row_data.get("Contr Allow")),
-                        net_charges=parse_decimal(row_data.get("Net Charges")),
-                        revenue_adjustments=parse_decimal(row_data.get("Revenue Adjustments")),
-                        payments=parse_decimal(row_data.get("Payments")),
-                        write_offs=parse_decimal(row_data.get("Write-Offs")),
-                        refunds=parse_decimal(row_data.get("Refunds")),
-                        balance_due=parse_decimal(row_data.get("Balance Due")),
-
-                        aging_date=parse_date(row_data.get("Aging Date")),
-                        last_event_date=parse_date(row_data.get("Last Event Date")),
-
-                        ordering_facility=row_data.get("Ordering Facility", None),
-                        vehicle=str(row_data.get("Vehicle", "Unknown")),
-
-                        call_type=row_data.get("Call Type", "Unknown"),
-                        priority=row_data.get("Priority", "Unknown"),
-                        call_type_priority=row_data.get("Call Type - Priority", "Unknown"),
-
-                        primary_icd=row_data.get("Primary ICD", "Unknown"),
-                        loaded_miles=parse_decimal(row_data.get("Loaded Miles", 0.0)),
-
-                        pickup_facility=row_data.get("Pickup Facility", None),
-                        pickup_modifier=row_data.get("Pickup Modifier", "Unknown"),
-                        pickup_address=row_data.get("Pickup Address", None),
-                        pickup_city=row_data.get("Pickup City", "Unknown"),
-                        pickup_state=row_data.get("Pickup State", "NA"),
-                        pickup_zip=str(row_data.get("Pickup Zip", "00000")),
-
-                        dropoff_facility=row_data.get("DropOff Facility", "Unknown"),
-                        dropoff_modifier=row_data.get("DropOff Modifier", "Unknown"),
-                        dropoff_address=row_data.get("DropOff Address", None),
-                        dropoff_city=row_data.get("DropOff City", "Unknown"),
-                        dropoff_state=row_data.get("DropOff State", "NA"),
-                        dropoff_zip=str(row_data.get("DropOff Zip", "00000")),
-
-                        import_date=parse_date(row_data.get("Import Date")),
-                        import_date_ym=row_data.get("Import Date YM", "Unknown"),
-
-                        med_nec=row_data.get("Med Nec", "Unknown"),
-                        accident_type=row_data.get("Accident Type", None),
-
-                        assigned_group=str(row_data.get("Assigned Group", None)),
-                        location=row_data.get("Location", "Unknown"),
-
-                        last_modified_date=parse_date(row_data.get("Last Modified Date")),
-                        last_modified_by=row_data.get("Last Modified By", "Unknown"),
-
-                        team=row_data.get("Team", "Unknown"),
-                        job=row_data.get("Job", "Unknown"),
-                        emsmart_id=row_data.get("EMSmartID", "Unknown"),
-                        prior_auth=row_data.get("Prior Auth", None),
-                    )
-                    created_objects.append(obj)
+                for index, row_data in enumerate(serializable_data, start=1):
+                    try:
+                        print(f"\n📄 Row {index}:")
+                        obj = ExcelData(
+                            upload=upload,
+                            company=row_data.get("Company", "Unknown"),
+                            dos=parse_date(row_data.get("DOS")),
+                            dosym=row_data.get("DOSYM", "Unknown"),
+                            run_number=row_data.get("Run #", "Unknown"),
+                            inc_number=row_data.get("Inc #t", "Unknown"),
+                            customer=row_data.get("Cust.", None),
+                            dob=row_data.get("DOB", None),
+                            status=row_data.get("Status", "Unknown"),
+                            prim_pay=row_data.get("Prim Pay", "Unknown"),
+                            pri_payor_category=row_data.get("Pri Payor Category", "Unknown"),
+                            cur_pay=row_data.get("Cur Pay", "Unknown"),
+                            cur_pay_category=row_data.get("Cur Pay Category", "Unknown"),
+                            schedule_track=row_data.get("Schedule/Track", "Unknown"),
+                            event_step=row_data.get("Event/Step", "Unknown"),
+                            coll=row_data.get("Coll", "NO"),
+                            gross_charges=parse_decimal(row_data.get("Gross Charges")),
+                            contr_allow=parse_decimal(row_data.get("Contr Allow")),
+                            net_charges=parse_decimal(row_data.get("Net Charges")),
+                            revenue_adjustments=parse_decimal(row_data.get("Revenue Adjustments")),
+                            payments=parse_decimal(row_data.get("Payments")),
+                            write_offs=parse_decimal(row_data.get("Write-Offs")),
+                            refunds=parse_decimal(row_data.get("Refunds")),
+                            balance_due=parse_decimal(row_data.get("Balance Due")),
+                            aging_date=parse_date(row_data.get("Aging Date")),
+                            last_event_date=parse_date(row_data.get("Last Event Date")),
+                            ordering_facility=row_data.get("Ordering Facility", None),
+                            vehicle=str(row_data.get("Vehicle", "Unknown")),
+                            call_type=row_data.get("Call Type", "Unknown"),
+                            priority=row_data.get("Priority", "Unknown"),
+                            call_type_priority=row_data.get("Call Type - Priority", "Unknown"),
+                            primary_icd=row_data.get("Primary ICD", "Unknown"),
+                            loaded_miles=parse_decimal(row_data.get("Loaded Miles", 0.0)),
+                            pickup_facility=row_data.get("Pickup Facility", None),
+                            pickup_modifier=row_data.get("Pickup Modifier", "Unknown"),
+                            pickup_address=row_data.get("Pickup Address", None),
+                            pickup_city=row_data.get("Pickup City", "Unknown"),
+                            pickup_state=row_data.get("Pickup State", "NA"),
+                            pickup_zip=str(row_data.get("Pickup Zip", "00000")),
+                            dropoff_facility=row_data.get("DropOff Facility", "Unknown"),
+                            dropoff_modifier=row_data.get("DropOff Modifier", "Unknown"),
+                            dropoff_address=row_data.get("DropOff Address", None),
+                            dropoff_city=row_data.get("DropOff City", "Unknown"),
+                            dropoff_state=row_data.get("DropOff State", "NA"),
+                            dropoff_zip=str(row_data.get("DropOff Zip", "00000")),
+                            import_date=parse_date(row_data.get("Import Date")),
+                            import_date_ym=row_data.get("Import Date YM", "Unknown"),
+                            med_nec=row_data.get("Med Nec", "Unknown"),
+                            accident_type=row_data.get("Accident Type", None),
+                            assigned_group=str(row_data.get("Assigned Group", None)),
+                            location=row_data.get("Location", "Unknown"),
+                            last_modified_date=parse_date(row_data.get("Last Modified Date")),
+                            last_modified_by=row_data.get("Last Modified By", "Unknown"),
+                            team=row_data.get("Team", "Unknown"),
+                            job=row_data.get("Job", "Unknown"),
+                            emsmart_id=row_data.get("EMSmartID", "Unknown"),
+                            prior_auth=row_data.get("Prior Auth", None),
+                        )
+                        created_objects.append(obj)
+                    except Exception as row_error:
+                        print(f"❌ Error in row {index}: {row_data}")
+                        print(f"⛔ Reason: {row_error}")
 
                 ExcelData.objects.bulk_create(created_objects)
+                print(f"\n✅ Successfully inserted {len(created_objects)} rows.")
 
-                return render(request, 'upload_success.html', {
-                    'upload': upload,
-                    'columns': df.columns.tolist(),
-                    'row_count': len(created_objects)
-                })
+                messages.success(request, f"✅ Successfully uploaded {file.name} with {len(created_objects)} records.")
+                return redirect(f'/test-verbose/?upload_id={upload.id}')
 
             except Exception as e:
-                return render(request, 'upload.html', {
-                    'form': form,
-                    'error': f'Error: {str(e)}'
-                })
+                print("❌ Upload failed (outer exception):", e)
+                messages.error(request, f"❌ Upload failed: {str(e)}")
 
     else:
         form = ExcelUploadForm()
@@ -256,7 +209,6 @@ def upload_excel(request):
     return render(request, 'upload.html', {'form': form})
 
 
-# Helper functions
 def parse_date(val):
     try:
         if pd.isna(val):
@@ -275,14 +227,6 @@ def parse_decimal(val):
         return Decimal(str(val))
     except (InvalidOperation, ValueError, TypeError):
         return Decimal('0.00')
-
-
-# def convert_to_serializable(val):
-#     if isinstance(val, (datetime, pd.Timestamp)):
-#         return val.isoformat()
-#     if pd.isna(val):
-#         return None
-#     return val
 
 
 def classify_payment_status(row):
@@ -428,12 +372,26 @@ from django.forms.models import model_to_dict
 
 def test_display_data_verbose(request):
     upload_id = request.GET.get('upload_id')
+    print("📥 Debug - Received upload_id from GET:", upload_id)
+
+    upload = get_object_or_404(ExcelUpload, id=upload_id)
+
+    if upload.user != request.user:
+        return HttpResponse(f"❌ This upload belongs to: {upload.user.username}, but you're logged in as {request.user.username}",
+            status=403)
+
+    # if not upload_id:
+    #     return HttpResponse("No upload selected. Please choose an upload file.", status=400)
 
     if not upload_id:
-        return HttpResponse("No upload selected. Please choose an upload file.", status=400)
+        messages.error(request, "Missing upload ID.")
+        return redirect('upload_excel')  # Or any safe fallback
 
     # Fetch first 50 rows for selected upload
-    queryset = ExcelData.objects.filter(upload__id=upload_id, upload__user=request.user)[:50]
+    # queryset = ExcelData.objects.filter(upload__id=upload_id, upload__user=request.user)[:50]
+    upload = get_object_or_404(ExcelUpload, id=upload_id, user=request.user)
+
+    queryset = ExcelData.objects.filter(upload=upload)[:50]
 
     if not queryset.exists():
         return HttpResponse("No data found for the selected upload or you do not have permission.", status=404)
@@ -924,23 +882,7 @@ from django.core.files.storage import default_storage
 from .models import Employee, ExcelData
 
 
-@login_required
-def upload_task_file(request):
-    if request.method == 'POST' and request.FILES.get('excel_file'):
-        file = request.FILES['excel_file']
-        file_path = default_storage.save(f'temp/{file.name}', file)
-        abs_path = default_storage.path(file_path)
-
-        df = pd.read_excel(abs_path)
-        headers = list(df.columns)
-
-        request.session['excel_headers'] = headers
-        request.session['uploaded_exceldata_path'] = abs_path
-
-        return redirect('map_task_fields')
-
-    return render(request, 'upload_task_file.html')
-
+# test code not work
 # @login_required
 # def upload_task_file(request):
 #     if request.method == 'POST' and request.FILES.get('excel_file'):
@@ -949,23 +891,41 @@ def upload_task_file(request):
 #         abs_path = default_storage.path(file_path)
 #
 #         df = pd.read_excel(abs_path)
-#         row_count = len(df)
-#         columns = list(df.columns)
+#         headers = list(df.columns)
 #
-#         # Create ExcelUpload record with required fields
-#         excel_upload = ExcelUpload.objects.create(
-#             user=request.user,
-#             file_name=file.name,
-#             row_count=row_count,
-#             columns=columns
-#         )
-#         request.session['current_upload_id'] = excel_upload.id
+#         request.session['excel_headers'] = headers
 #         request.session['uploaded_exceldata_path'] = abs_path
 #
-#         # You probably want to redirect to field mapping or confirmation
-#         return redirect('https://www.youtube.com/')  # or your next step URL
+#         return redirect('map_task_fields')
 #
 #     return render(request, 'upload_task_file.html')
+
+
+@login_required
+def upload_task_file(request):
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        file = request.FILES['excel_file']
+        file_path = default_storage.save(f'temp/{file.name}', file)
+        abs_path = default_storage.path(file_path)
+
+        df = pd.read_excel(abs_path)
+        row_count = len(df)
+        columns = list(df.columns)
+
+        # Create ExcelUpload record with required fields
+        excel_upload = ExcelUpload.objects.create(
+            user=request.user,
+            file_name=file.name,
+            row_count=row_count,
+            columns=columns
+        )
+        request.session['current_upload_id'] = excel_upload.id
+        request.session['uploaded_exceldata_path'] = abs_path
+
+        # You probably want to redirect to field mapping or confirmation
+        return redirect('map_task_fields')  # or your next step URL
+
+    return render(request, 'upload_task_file.html')
 
 
 @login_required
@@ -1001,24 +961,6 @@ def map_task_fields(request):
         'header_mappings': header_mappings,
         'model_fields': model_fields,
     })
-
-
-# from datetime import datetime, date  # ✅ use this style
-#
-#
-# def safe_date(val):
-#     if val is None or (isinstance(val, float) and pd.isna(val)):
-#         return None
-#     if isinstance(val, str):
-#         try:
-#             return datetime.strptime(val, "%Y-%m-%d").date()
-#         except ValueError:
-#             return None
-#     if isinstance(val, datetime):
-#         return val.date()
-#     if isinstance(val, date):
-#         return val
-#     return None
 
 
 from datetime import datetime
@@ -1122,209 +1064,6 @@ def dashboard(request):
     return render(request, 'dashboard.html', {
         'summary': summary
     })
-
-
-# def confirm_import(request):
-#     file_path = request.session.get('uploaded_file_path')
-#     field_mapping = request.session.get('field_mapping')
-#
-#     if not file_path or not field_mapping:
-#         return redirect('upload_file')
-#
-#     df = pd.read_excel(file_path)
-#
-#     # Rename columns based on mapping
-#     df = df.rename(columns=field_mapping)
-#
-#     # Filter only mapped model fields
-#     allowed_fields = ['employee_name', 'client_name', 'target', 'ramp_percent']
-#     data_to_import = df[[field for field in allowed_fields if field in df.columns]]
-#
-#     if request.method == 'POST':
-#         for _, row in data_to_import.iterrows():
-#             Employee.objects.create(
-#                 employee_name=row.get('employee_name', ''),
-#                 client_name=row.get('client_name', ''),
-#                 target=row.get('target', 0),
-#                 ramp_percent=row.get('ramp_percent', 0),
-#             )
-#         return redirect('dashboard')  # You can define a success page or redirect elsewhere
-#
-#     return render(request, 'confirm_import.html', {
-#         'data': data_to_import.to_dict(orient='records'),
-#         'columns': data_to_import.columns
-#     })
-#
-#
-# from django.contrib.auth.decorators import login_required
-# from django.contrib import messages
-# import difflib
-#
-#
-# @login_required
-# def map_task_fields(request):
-#     excel_headers = request.session.get('excel_headers')
-#     if not excel_headers:
-#         messages.error(request, "No headers found. Please upload a file.")
-#         return redirect('upload_file')
-#
-#     model_fields = [
-#         field.name for field in ExcelData._meta.get_fields()
-#         if not field.auto_created and not field.is_relation and field.name != 'id'
-#     ]
-#
-#     # Auto-suggest mapping
-#     suggested_mapping = {}
-#     for header in excel_headers:
-#         normalized_header = header.lower().replace(" ", "_")
-#         match = difflib.get_close_matches(normalized_header, model_fields, n=1, cutoff=0.6)
-#         suggested_mapping[header] = match[0] if match else ""
-#
-#     # Convert to list of dicts for template
-#     header_mappings = []
-#     for header in excel_headers:
-#         header_mappings.append({
-#             'header': header,
-#             'suggested': suggested_mapping.get(header, '')
-#         })
-#
-#     if request.method == 'POST':
-#         field_mapping = {}
-#         for header in excel_headers:
-#             mapped_field = request.POST.get(header)
-#             if mapped_field:
-#                 field_mapping[header] = mapped_field
-#
-#         request.session['field_mapping'] = field_mapping
-#         return redirect('confirm_exceldata_import')
-#
-#     return render(request, 'map_task_fields.html', {
-#         'header_mappings': header_mappings,
-#         'model_fields': model_fields,
-#     })
-#
-#
-#
-# @login_required
-# def confirm_exceldata_import(request):
-#     file_path = request.session.get('uploaded_exceldata_path')
-#     field_mapping = request.session.get('exceldata_field_mapping')
-#
-#     if not file_path or not field_mapping:
-#         return redirect('upload_exceldata_file')
-#
-#     df = pd.read_excel(file_path)
-#     df = df.rename(columns=field_mapping)
-#
-#     allowed_fields = [f.name for f in ExcelData._meta.fields if f.name not in ['id', 'assigned_to']]
-#     data_to_import = df[[col for col in df.columns if col in allowed_fields]]
-#     task_pool = data_to_import.to_dict(orient='records')
-#
-#     employees = Employee.objects.all()
-#
-#     if request.method == 'POST':
-#         total_task_count = len(task_pool)
-#         custom_assignments = {}
-#
-#         # Get altered task counts from form
-#         for emp in employees:
-#             count = int(request.POST.get(f'emp_{emp.id}', 0))
-#             custom_assignments[emp] = count
-#
-#         # Assign accordingly
-#         assigned_tasks = []
-#         assigned_index = 0
-#         for emp, count in custom_assignments.items():
-#             for _ in range(count):
-#                 if assigned_index >= len(task_pool):
-#                     break
-#                 row_data = task_pool[assigned_index]
-#                 assigned_tasks.append((row_data, emp))
-#                 assigned_index += 1
-#
-#         # Save records
-#         for row_data, emp in assigned_tasks:
-#             row_kwargs = {field: row_data.get(field) for field in allowed_fields}
-#             ExcelData.objects.create(**row_kwargs, assigned_to=emp)
-#
-#         messages.success(request, f"{len(assigned_tasks)} rows imported & assigned successfully.")
-#         return redirect('dashboard')
-#
-#     # GET request → preview assignment plan
-#     preview_data = []
-#     for emp in employees:
-#         target = emp.target or 0
-#         ramp = emp.ramp_percent or 0
-#         effective = int(target * ramp / 100)
-#         preview_data.append({
-#             'id': emp.id,
-#             'name': emp.employee_name,
-#             'target': target,
-#             'ramp': ramp,
-#             'effective': effective,
-#         })
-#
-#     return render(request, 'preview_task_assignment.html', {
-#         'preview_data': preview_data,
-#         'total_tasks': len(task_pool),
-#     })
-#
-#
-#
-# import pandas as pd
-# from django.core.files.storage import default_storage
-#
-#
-# @login_required
-# def upload_task_file(request):
-#     if request.method == 'POST' and request.FILES['excel_file']:
-#         file = request.FILES['excel_file']
-#         file_path = default_storage.save(f'temp/{file.name}', file)
-#         abs_path = default_storage.path(file_path)
-#
-#         df = pd.read_excel(abs_path)
-#         headers = list(df.columns)
-#
-#         request.session['excel_headers'] = headers
-#         request.session['uploaded_file_path'] = abs_path
-#
-#         return redirect('map_task_fields')
-#
-#     return render(request, 'upload_task_file.html')
-#
-#
-# from django.contrib.auth.decorators import login_required
-# from .models import ExcelData
-#
-#
-# @login_required
-# def dashboard(request):
-#     employees = Employee.objects.all()
-#
-#     dashboard_data = []
-#     for emp in employees:
-#         assigned_count = ExcelData.objects.filter(assigned_to=emp).count()
-#         effective_target = int((emp.target or 0) * (emp.ramp_percent or 0) / 100)
-#         dashboard_data.append({
-#             'employee': emp,
-#             'assigned_count': assigned_count,
-#             'effective_target': effective_target,
-#             'remaining': max(effective_target - assigned_count, 0)
-#         })
-#
-#     return render(request, 'task_dashboard.html', {
-#         'dashboard_data': dashboard_data
-#     })
-
-
-# views.py
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
-import csv
-from .models import Employee
-from .forms import EmployeeForm
-from django.db.models import Count
 
 
 @login_required

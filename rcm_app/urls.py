@@ -12,7 +12,7 @@ from django.contrib.auth.views import LoginView, LogoutView
 
 urlpatterns = [
     path('', home, name='home'),
-    path('upload/', upload_excel, name='upload_excel'),
+    # path('upload/', upload_excel, name='upload_excel'),
     # path('display/', display_data, name='display_data'),
     # path('display_filtered/', display_filtered_data, name='display_filtered'),
     # path('test-display/', test_display_data, name='test_display_data'),
@@ -23,7 +23,7 @@ urlpatterns = [
     path("register/", register_view, name="register"),
     path("login/", LoginView.as_view(template_name="login.html"), name="login"),
     path("logout/", LogoutView.as_view(next_page="login"), name="logout"),
-    path("upload/", upload_excel, name="upload"),
+    path("upload/", upload_excel, name="upload_excel"),
     path('chat/<int:room_id>/', chat_room, name='chat_room'),
     path('send/', send_message, name='send_message'),
     path('start_chat/<int:user_id>/', start_chat, name='start_chat'),

@@ -156,3 +156,35 @@ class Employee(models.Model):
 
     def __str__(self):
         return f"{self.employee_name} - {self.client_name}"
+
+
+class SOW(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField()
+    department = models.CharField(max_length=100)
+    default_sla = models.CharField(max_length=100, null=True, blank=True)
+    default_qa_sampling = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+
+class SOWAssignment(models.Model):
+    ROLE_CHOICES = [
+        ('Primary', 'Primary Analyst'),
+        ('Secondary', 'Backup Analyst'),
+        ('QA', 'Quality Auditor')
+    ]
+
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)
+    sow = models.ForeignKey(SOW, on_delete=models.CASCADE)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    target_volume = models.PositiveIntegerField(null=True, blank=True)
+    ramp_up_percent = models.DecimalField(max_digits=4, decimal_places=2, default=1.0)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.client.name} - {self.sow.name} - {self.employee.employee_name}"
