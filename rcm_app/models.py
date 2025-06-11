@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.contrib.auth.models import User
 from datetime import date
+from django.utils import timezone
 
 
 class Profile(models.Model):
@@ -110,12 +111,40 @@ class Message(models.Model):
         return f"{self.sender} at {self.timestamp}"
 
 
-from django.utils import timezone
+class Client(models.Model):
+    PRICING_PLAN_CHOICES = [
+        ('FTE', 'FTE-based'),
+        ('Transaction', 'Per-Transaction'),
+        ('Percentage', 'Percentage of Collections'),
+        ('OldAR', 'Old AR Recovery')
+    ]
+
+    TYPE_CHOICES = [
+        ('Provider', 'Healthcare Provider'),
+        ('Billing', 'Billing Company'),
+    ]
+
+    name = models.CharField(max_length=255, unique=True)
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    specialty = models.CharField(max_length=100)
+    start_date = models.DateField()
+    avg_monthly_claims = models.PositiveIntegerField()
+    avg_annual_claims = models.PositiveIntegerField()
+    avg_claim_value = models.DecimalField(max_digits=10, decimal_places=2)
+    pricing_plan = models.CharField(max_length=20, choices=PRICING_PLAN_CHOICES)
+    plan_parameter = models.CharField(max_length=100)
+    sla_target = models.CharField(max_length=100, blank=True, null=True)
+    qa_target = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
 
 
 class Employee(models.Model):
     employee_name = models.CharField(max_length=100)
-    client_name = models.CharField(max_length=100, verbose_name="Client Name / Acc Name")
+    # client_name = models.CharField(max_length=100, verbose_name="Client Name / Acc Name")
+    client_name = models.ForeignKey(Client, on_delete=models.CASCADE, verbose_name="Client Name / Acc Name")
     target = models.DecimalField(max_digits=10, decimal_places=2)
     ramp_percent = models.FloatField(default=0.0)
 

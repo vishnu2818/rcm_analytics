@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from .models import *
 
 
+@admin.register(Profile)
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'company_name', 'company_email', 'phone', 'avg_claim_rate_per_month', 'heard_about_us')
 
@@ -17,8 +18,14 @@ class ExcelDataAdmin(admin.ModelAdmin):
     search_fields = ('assigned_to__employee_name', 'customer', 'company')
 
 
-admin.site.register(Profile, UserProfileAdmin)
-# admin.site.register(ExcelData)
+@admin.register(Client)
+class ClientAdmin(admin.ModelAdmin):
+    list_display = ('name', 'type', 'pricing_plan', 'active')
+    search_fields = ('name', 'specialty')
+    list_filter = ('type', 'pricing_plan', 'active')
+
+
+# admin.site.register(Profile, UserProfileAdmin)
 admin.site.register(ExcelUpload)
 admin.site.register(Employee)
 
