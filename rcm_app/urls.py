@@ -40,4 +40,9 @@ urlpatterns = [
     path('employee-targets/<int:pk>/update/', employee_target_update, name='employee_target_update'),
     path('employee-targets/<int:pk>/delete/', employee_target_delete, name='employee_target_delete'),
     path('employee-targets/dashboard/', employee_target_dashboard, name='employee_target_dashboard'),
+
+
+path('qa-audits/', qa_audit_list, name='qa_audit_list'),
+path('qa-audits/create/', qa_audit_create, name='qa_audit_create'),
+
 ]

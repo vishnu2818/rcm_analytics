@@ -1,0 +1,59 @@
+
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Submit QA Audit</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label for="id_claim" class="form-label">Claim</label>
+            {{ form.claim }}
+        </div>
+
+        <div class="mb-3">
+            <label for="id_audited_by" class="form-label">Audited by</label>
+            {{ form.audited_by }}
+        </div>
+
+        <div class="mb-3">
+            <label for="id_score" class="form-label">Score (%)</label>
+            {{ form.score }}
+        </div>
+
+        <div class="mb-3">
+            <label for="id_outcome" class="form-label">Outcome</label>
+            {{ form.outcome }}
+        </div>
+
+        <div class="mb-3">
+            <label for="id_error_type" class="form-label">Error Type</label>
+            {{ form.error_type }}
+        </div>
+
+        <div class="mb-3">
+            <label for="id_comments" class="form-label">QA Comments</label>
+            {{ form.comments }}
+        </div>
+
+        <hr>
+
+        <div class="mb-3">
+            <label for="id_rebuttal_status" class="form-label">Rebuttal Status</label>
+            {{ form.rebuttal_status }}
+        </div>
+
+        <div class="mb-3">
+            <label for="id_rebuttal_comments" class="form-label">Rebuttal Comments</label>
+            {{ form.rebuttal_comments }}
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'qa_audit_list' %}" class="btn btn-secondary">← Back to Audits</a>
+            <button type="submit" class="btn btn-success">Submit Audit</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -135,6 +135,8 @@ class Client(models.Model):
     plan_parameter = models.CharField(max_length=100)
     sla_target = models.CharField(max_length=100, blank=True, null=True)
     qa_target = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+
     active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -153,6 +155,22 @@ class Employee(models.Model):
 
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # more fields:
+    joining_date = models.DateField(blank=True, null=True)
+    designation = models.CharField(max_length=100,blank=True, null=True)
+    sub_department = models.CharField(max_length=100, blank=True, null=True)
+    ROLE_CHOICES = [
+        ('Analyst', 'Analyst'),
+        ('QA', 'QA'),
+        ('Manager', 'Manager'),
+        ('Admin', 'Admin'),
+        ('Client', 'Client'),
+    ]
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES,blank=True, null=True)
+    password_hash = models.CharField(max_length=255,blank=True, null=True)
+    active = models.BooleanField(default=True,blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.employee_name} - {self.client_name}"
@@ -188,3 +206,27 @@ class SOWAssignment(models.Model):
 
     def __str__(self):
         return f"{self.client.name} - {self.sow.name} - {self.employee.employee_name}"
+
+
+class QAAudit(models.Model):
+    claim = models.ForeignKey(ExcelData, on_delete=models.CASCADE)
+    audited_by = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='audits_done')
+    audited_on = models.DateTimeField(auto_now_add=True)
+    score = models.DecimalField(max_digits=5, decimal_places=2)
+    outcome = models.CharField(max_length=50, choices=[
+        ('Pass', 'Pass'),
+        ('Minor Error', 'Minor Error'),
+        ('Major Error', 'Major Error'),
+        ('Fail', 'Fail')
+    ])
+    error_type = models.CharField(max_length=100, null=True, blank=True)
+    comments = models.TextField(null=True, blank=True)
+    rebuttal_status = models.CharField(max_length=20, choices=[
+        ('None', 'None'),
+        ('Disputed', 'Disputed'),
+        ('Resolved', 'Resolved')
+    ], default='None')
+    rebuttal_comments = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Audit for Claim {self.claim.id} by {self.audited_by.employee_name}"

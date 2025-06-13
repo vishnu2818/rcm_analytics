@@ -28,3 +28,22 @@ class EmployeeForm(forms.ModelForm):
     class Meta:
         model = Employee
         fields = ['employee_name', 'client_name', 'target', 'ramp_percent']
+
+
+from .models import QAAudit
+from django import forms
+
+class QAAuditForm(forms.ModelForm):
+    class Meta:
+        model = QAAudit
+        fields = [
+            'claim',
+            'score',
+            'audited_by',
+            'outcome',
+            'error_type',
+            'comments',
+            'rebuttal_status',
+            'rebuttal_comments',
+        ]
+

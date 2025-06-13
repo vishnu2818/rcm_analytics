@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 import csv
 import numpy as np
-from .forms import EmployeeForm
+from .forms import EmployeeForm, QAAuditForm
 from django.db.models import Count
 from django.contrib.auth import login
 from .forms import UserRegistrationForm
@@ -908,24 +908,28 @@ def upload_task_file(request):
         file_path = default_storage.save(f'temp/{file.name}', file)
         abs_path = default_storage.path(file_path)
 
+        # Read Excel
         df = pd.read_excel(abs_path)
         row_count = len(df)
         columns = list(df.columns)
 
-        # Create ExcelUpload record with required fields
+        # Create ExcelUpload entry
         excel_upload = ExcelUpload.objects.create(
             user=request.user,
             file_name=file.name,
             row_count=row_count,
             columns=columns
         )
+
+        # 🔥 FIXED: Set headers and path in session
         request.session['current_upload_id'] = excel_upload.id
         request.session['uploaded_exceldata_path'] = abs_path
+        request.session['excel_headers'] = columns  # 🛠️ THIS LINE FIXES YOUR ISSUE
 
-        # You probably want to redirect to field mapping or confirmation
-        return redirect('map_task_fields')  # or your next step URL
+        return redirect('map_task_fields')  # Next step
 
     return render(request, 'upload_task_file.html')
+
 
 
 @login_required
@@ -1121,3 +1125,65 @@ def employee_target_dashboard(request):
         average_ramp=models.Avg('ramp_percent'),
     )
     return render(request, 'employee_target_dashboard.html', {'stats': stats})
+
+@login_required
+def qa_audit_list(request):
+    audits = QAAudit.objects.select_related('claim', 'audited_by').all()
+    return render(request, 'qa_audit_list.html', {'audits': audits})
+
+
+# @login_required
+# def qa_audit_create(request):
+#     if request.method == 'POST':
+#         form = QAAuditForm(request.POST)
+#         if form.is_valid():
+#             audit = form.save(commit=False)
+#             audit.audited_by = Employee.objects.get(email=request.user.email)
+#             audit.save()
+#             messages.success(request, "Audit submitted.")
+#             return redirect('qa_audit_list')
+#     else:
+#         form = QAAuditForm()
+#     return render(request, 'qa_audit_form.html', {'form': form})
+from django.core.exceptions import ObjectDoesNotExist
+
+@login_required
+def qa_audit_create(request):
+    if request.method == 'POST':
+        form = QAAuditForm(request.POST)
+        if form.is_valid():
+            audit = form.save(commit=False)
+            try:
+                audit.audited_by = Employee.objects.get(email=request.user.email)
+            except ObjectDoesNotExist:
+                messages.error(request, "❌ No Employee found with your email. Contact admin to link your profile.")
+                return redirect('qa_audit_list')
+            audit.save()
+            messages.success(request, "✅ Audit submitted.")
+            return redirect('qa_audit_list')
+    else:
+        form = QAAuditForm()
+    return render(request, 'qa_audit_form.html', {'form': form})
+
+from django.core.exceptions import ObjectDoesNotExist
+
+# @login_required
+# def qa_audit_create(request):
+#     try:
+#         employee = Employee.objects.get(email=request.user.email)
+#     except Employee.DoesNotExist:
+#         messages.error(request, "❌ You are not mapped to any Employee. Contact Admin.")
+#         return redirect('qa_audit_list')  # or redirect to an error/info page
+#
+#     if request.method == 'POST':
+#         form = QAAuditForm(request.POST)
+#         if form.is_valid():
+#             audit = form.save(commit=False)
+#             audit.audited_by = employee
+#             audit.save()
+#             messages.success(request, "✅ QA Audit Submitted.")
+#             return redirect('qa_audit_list')
+#     else:
+#         form = QAAuditForm(initial={'audited_by': employee})
+#
+#     return render(request, 'qa_audit_form.html', {'form': form})

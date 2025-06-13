@@ -1,0 +1,54 @@
+
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">QA Audit History</h2>
+        <a href="{% url 'qa_audit_create' %}" class="btn btn-primary">+ New QA Audit</a>
+    </div>
+
+    {% if audits %}
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Claim ID</th>
+                    <th>Customer</th>
+                    <th>Auditor</th>
+                    <th>Score (%)</th>
+                    <th>Outcome</th>
+                    <th>Error Type</th>
+                    <th>Comments</th>
+                    <th>Rebuttal Status</th>
+                    <th>Rebuttal Comments</th>
+                    <th>Audited On</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for audit in audits %}
+                <tr>
+                    <td>{{ audit.claim.id }}</td>
+                    <td>{{ audit.claim.customer|default:"-" }}</td>
+                    <td>{{ audit.audited_by.employee_name|default:"-" }}</td>
+                    <td>{{ audit.score }}%</td>
+                    <td>{{ audit.outcome }}</td>
+                    <td>{{ audit.error_type|default:"-" }}</td>
+                    <td>{{ audit.comments|default:"-" }}</td>
+                    <td>{{ audit.rebuttal_status }}</td>
+                    <td>{{ audit.rebuttal_comments|default:"-" }}</td>
+                    <td>{{ audit.audited_on|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center">
+        <p class="mb-0">No audits submitted yet.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
