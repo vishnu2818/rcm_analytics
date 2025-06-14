@@ -1,14 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Employee Targets</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #eef1f5;
+            margin: 0;
+            padding: 30px;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        a {
+            text-decoration: none;
+            color: #2c7be5;
+            margin-right: 15px;
+            font-weight: 500;
+        }
+
+        a:hover {
+            color: #1a5fb4;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background-color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+
+        thead {
+            background-color: #2c7be5;
+            color: #ffffff;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+        }
+
+        tbody tr {
+            border-top: 1px solid #e0e0e0;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #f9fafc;
+        }
+
+        tbody tr:hover {
+            background-color: #e6f0ff;
+        }
+
+        ul {
+            padding-left: 18px;
+            margin: 0;
+        }
+
+        td ul li {
+            font-size: 13px;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .actions a {
+            font-size: 14px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .actions a:first-child {
+            background-color: #daf0e1;
+            color: #157347;
+        }
+
+        .actions a:last-child {
+            background-color: #f9d5d3;
+            color: #b02a37;
+        }
+
+        .actions a:hover {
+            opacity: 0.9;
+        }
+        ul {
+            list-style-type: none; /* ← removes bullets */
+            padding-left: 0;
+            margin: 0;
+        }
+
+    </style>
+</head>
+<body>
+
 <h2>Employee Targets</h2>
-<a href="{% url 'employee_target_create' %}">Create New Target</a> |
+<a href="{% url 'employee_target_create' %}">Create New Target</a>
 <a href="?export=csv">Export CSV</a>
 
-<table border="1" cellpadding="5" cellspacing="0">
+<table>
     <thead>
         <tr>
             <th>Employee Name</th>
             <th>Client Name</th>
             <th>Target</th>
             <th>Ramp %</th>
+            <th>Task Count</th>
+            <th>Recent Tasks</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -18,14 +121,29 @@
             <td>{{ target.employee_name }}</td>
             <td>{{ target.client_name }}</td>
             <td>{{ target.target }}</td>
-            <td>{{ target.ramp_percent }}</td>
+            <td>{{ target.ramp_percent }}%</td>
+            <td>{{ target.task_count }}</td>
             <td>
-                <a href="{% url 'employee_target_update' target.pk %}">Edit</a> |
+                <ul>
+                    {% for task in target.tasks %}
+                        <li>{{ task.emsmart_id }} - {{ task.dos }} - {{ task.status }}</li>
+                    {% empty %}
+                        <li>No tasks</li>
+                    {% endfor %}
+                </ul>
+            </td>
+            <td class="actions">
+                <a href="{% url 'employee_target_update' target.pk %}">Edit</a>
                 <a href="{% url 'employee_target_delete' target.pk %}">Delete</a>
             </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5">No employee targets found.</td></tr>
+        <tr>
+            <td colspan="7" style="text-align:center; padding: 20px;">No employee targets found.</td>
+        </tr>
         {% endfor %}
     </tbody>
 </table>
+
+</body>
+</html>

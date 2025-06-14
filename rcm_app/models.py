@@ -33,7 +33,7 @@ class ExcelData(models.Model):
     upload = models.ForeignKey(ExcelUpload, on_delete=models.CASCADE, related_name='rows')
     company = models.CharField(max_length=100, null=True, blank=True)
     dos = models.DateField(null=True, blank=True, verbose_name="Date of Service")
-    dosym = models.CharField(max_length=7, null=True, blank=True)
+    dosym = models.CharField(max_length=20, null=True, blank=True)
     run_number = models.CharField(max_length=20, null=True, blank=True)
     inc_number = models.CharField(max_length=20, null=True, blank=True)
     customer = models.CharField(max_length=100, null=True, blank=True)
@@ -76,7 +76,7 @@ class ExcelData(models.Model):
     dropoff_state = models.CharField(max_length=2, null=True, blank=True)
     dropoff_zip = models.CharField(max_length=15, null=True, blank=True)
     import_date = models.DateField(null=True, blank=True)
-    import_date_ym = models.CharField(max_length=7, null=True, blank=True)
+    import_date_ym = models.CharField(max_length=20, null=True, blank=True)
     med_nec = models.CharField(max_length=10, null=True, blank=True)
     accident_type = models.CharField(max_length=50, null=True, blank=True)
     assigned_group = models.CharField(max_length=100, null=True, blank=True)
@@ -89,6 +89,7 @@ class ExcelData(models.Model):
     prior_auth = models.CharField(max_length=100, null=True, blank=True)
 
     assigned_to = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Row from {self.upload.file_name}"
@@ -146,18 +147,13 @@ class Client(models.Model):
 
 class Employee(models.Model):
     employee_name = models.CharField(max_length=100)
-    # client_name = models.CharField(max_length=100, verbose_name="Client Name / Acc Name")
     client_name = models.ForeignKey(Client, on_delete=models.CASCADE, verbose_name="Client Name / Acc Name")
     target = models.DecimalField(max_digits=10, decimal_places=2)
     ramp_percent = models.FloatField(default=0.0)
-
     email = models.EmailField(unique=True, null=True, blank=True)
     department = models.CharField(max_length=100, blank=True, null=True)
-
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    # more fields:
     joining_date = models.DateField(blank=True, null=True)
     designation = models.CharField(max_length=100,blank=True, null=True)
     sub_department = models.CharField(max_length=100, blank=True, null=True)

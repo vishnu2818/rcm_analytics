@@ -25,9 +25,20 @@ class UserRegistrationForm(forms.Form):
 
 
 class EmployeeForm(forms.ModelForm):
+    tasks = forms.ModelMultipleChoiceField(
+        queryset=ExcelData.objects.filter(assigned_to__isnull=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Assign Tasks"
+    )
+
     class Meta:
         model = Employee
-        fields = ['employee_name', 'client_name', 'target', 'ramp_percent']
+        fields = [
+            'employee_name', 'client_name', 'target', 'ramp_percent',
+            'email', 'department', 'joining_date', 'designation',
+            'sub_department', 'role', 'active', 'notes', 'tasks'
+        ]
 
 
 from .models import QAAudit
@@ -48,7 +59,14 @@ class QAAuditForm(forms.ModelForm):
             'rebuttal_comments',
         ]
 
+
+from django.forms.widgets import DateInput
+
+
 class ExcelDataForm(forms.ModelForm):
     class Meta:
         model = ExcelData
-        exclude = ['upload', 'assigned_to']
+        exclude = ['upload']
+        widgets = {
+            'dos': DateInput(attrs={'type': 'date'})
+        }

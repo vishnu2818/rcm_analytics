@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,28 +73,51 @@
 </head>
 <body>
 
-    <h2>Processed Data Preview</h2>
+<h2>Processed Data Preview</h2>
 
-    <div class="actions">
-        <a href="{% url 'download_excel' %}" class="btn">📥 Download as Excel</a>
-        <a href="{% url 'download_pdf' %}" class="btn">📄 Download as PDF</a>
-    </div>
+<div class="actions">
+    <a href="{% url 'download_excel' %}" class="btn">📥 Download as Excel</a>
+    <a href="{% url 'download_pdf' %}" class="btn">📄 Download as PDF</a>
+</div>
 
-    <table>
-       <thead>
-    <tr>
-        {% for key in data.0.keys %}
-            <th>{{ key }}</th>
-        {% endfor %}
-        <th>Actions</th>
-    </tr>
-</thead>
-<tbody>
-    {% for row in data %}
+<table>
+    <thead>
         <tr>
-            {% for val in row.values %}
-                <td>{{ val }}</td>
-            {% endfor %}
+            <th>No</th>
+            <th>DOS</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Primary Payor</th>
+            <th>Current Payor</th>
+            <th>Balance Due</th>
+            <th>Assigned Group</th>
+            <th>EMSmart ID</th>
+            <th>Prior Auth</th>
+            <th>Assigned To</th>
+            <th>Notes</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in data %}
+        <tr>
+            <td>{{ forloop.counter }}</td> <!-- Serial number -->
+            <td>{{ row.dos }}</td>
+            <td>{{ row.customer }}</td>
+            <td>{{ row.status }}</td>
+            <td>{{ row.prim_pay }}</td>
+            <td>{{ row.cur_pay }}</td>
+            <td>{{ row.balance_due }}</td>
+            <td>{{ row.assigned_group }}</td>
+            <td>{{ row.emsmart_id }}</td>
+            <td>{{ row.prior_auth }}</td>
+            <td>{% if row.assigned_to %}
+            {{ row.assigned_to.employee_name }}
+            {% else %}
+            <i>Unassigned</i>
+            {% endif %}
+            </td>
+            <td>{{ row.notes }}</td>
             <td>
                 <a href="{% url 'edit_exceldata' row.id %}" class="btn">✏️ Edit</a>
                 <form action="{% url 'delete_exceldata' row.id %}" method="post" style="display:inline;">
@@ -101,10 +126,10 @@
                 </form>
             </td>
         </tr>
-    {% endfor %}
-</tbody>
-
-    </table>
+        {% endfor %}
+    </tbody>
+</table>
 
 </body>
+
 </html>

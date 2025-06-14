@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 import csv
 import numpy as np
-from .forms import EmployeeForm, QAAuditForm
+from .forms import EmployeeForm, QAAuditForm, ExcelDataForm
 from django.db.models import Count
 from django.contrib.auth import login
 from .forms import UserRegistrationForm
@@ -274,7 +274,7 @@ def test_display_data_verbose(request):
         processed_data.append(row_data)
 
     return render(request, 'testing.html', {
-        'data': processed_data,
+        'data': queryset,
         'upload': upload,
     })
 
@@ -1240,42 +1240,90 @@ def dashboard(request):
     })
 
 
+import csv
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from .models import Employee, ExcelData
+
+
 @login_required
 def employee_target_list(request):
-    targets = Employee.objects.all()
+    employees = Employee.objects.select_related('client_name')
+
+    # Attach task info
+    for emp in employees:
+        emp.task_count = ExcelData.objects.filter(assigned_to=emp).count()
+        emp.tasks = ExcelData.objects.filter(assigned_to=emp).order_by('-id')[:5]
 
     # Export CSV
     if 'export' in request.GET:
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="employee_targets.csv"'
+
         writer = csv.writer(response)
-        writer.writerow(['Employee Name', 'Client Name', 'Target', 'Ramp %'])
-        for target in targets:
-            writer.writerow([target.employee_name, target.client_name, target.target, target.ramp_percent])
+        writer.writerow(['Employee Name', 'Client Name', 'Target', 'Ramp %', 'Task Count', 'Recent Task IDs'])
+
+        for emp in employees:
+            recent_task_ids = ', '.join([task.emsmart_id or 'N/A' for task in emp.tasks])
+            writer.writerow([
+                emp.employee_name,
+                emp.client_name.name if emp.client_name else '',
+                emp.target,
+                emp.ramp_percent,
+                emp.task_count,
+                recent_task_ids
+            ])
         return response
 
-    return render(request, 'employee_target_list.html', {'targets': targets})
+    return render(request, 'employee_target_list.html', {'targets': employees})
 
 
 @login_required
 def employee_target_create(request):
     form = EmployeeForm(request.POST or None)
     if form.is_valid():
-        obj = form.save(commit=False)
-        obj.created_by = request.user
-        obj.save()
+        employee = form.save(commit=False)
+        employee.created_by = request.user
+        employee.save()
+        form.save_m2m()  # For regular m2m fields (not needed here, but good habit)
+
+        # Save task assignments
+        tasks = form.cleaned_data['tasks']
+        tasks.update(assigned_to=employee)
+
         return redirect('employee_target_list')
     return render(request, 'employee_target_form.html', {'form': form, 'action': 'Create'})
 
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, render, redirect
+from .models import Employee, ExcelData
+from .forms import EmployeeForm
 
 @login_required
 def employee_target_update(request, pk):
     target = get_object_or_404(Employee, pk=pk)
     form = EmployeeForm(request.POST or None, instance=target)
+
     if form.is_valid():
-        form.save()
+        employee = form.save()
+
+        # Remove previously assigned tasks from this employee
+        ExcelData.objects.filter(assigned_to=employee).update(assigned_to=None)
+
+        # Assign newly selected tasks
+        tasks = form.cleaned_data.get('tasks')
+        if tasks:
+            tasks.update(assigned_to=employee)
+
         return redirect('employee_target_list')
+
+    # Pre-populate the task selection
+    form.fields['tasks'].initial = ExcelData.objects.filter(assigned_to=target)
+
     return render(request, 'employee_target_form.html', {'form': form, 'action': 'Update'})
+
 
 
 @login_required
@@ -1476,16 +1524,19 @@ def edit_exceldata(request, pk):
         form = ExcelDataForm(request.POST, instance=instance)
         if form.is_valid():
             form.save()
-            return redirect('test_display_data_verbose')
+            return redirect('test-verbose')
+        else:
+            print(form.errors)  # Debugging
     else:
         form = ExcelDataForm(instance=instance)
     return render(request, 'edit_exceldata.html', {'form': form})
+
+
 
 @login_required
 def delete_exceldata(request, pk):
     instance = get_object_or_404(ExcelData, id=pk)
     if request.method == 'POST':
         instance.delete()
-        return redirect('test_display_data_verbose')
+        return redirect('test-verbose')
     return render(request, 'confirm_delete.html', {'object': instance})
-
