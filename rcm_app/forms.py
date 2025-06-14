@@ -1,7 +1,7 @@
 # rcm_app/forms.py
 from django.contrib.auth.models import User
 from django import forms
-from .models import Employee
+from .models import Employee, ExcelData
 
 
 class ExcelUploadForm(forms.Form):
@@ -33,6 +33,7 @@ class EmployeeForm(forms.ModelForm):
 from .models import QAAudit
 from django import forms
 
+
 class QAAuditForm(forms.ModelForm):
     class Meta:
         model = QAAudit
@@ -47,3 +48,7 @@ class QAAuditForm(forms.ModelForm):
             'rebuttal_comments',
         ]
 
+class ExcelDataForm(forms.ModelForm):
+    class Meta:
+        model = ExcelData
+        exclude = ['upload', 'assigned_to']

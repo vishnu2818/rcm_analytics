@@ -92,9 +92,20 @@ from .forms import ExcelUploadForm
 from .utils import parse_date, parse_decimal, convert_to_serializable  # Ensure these are defined
 import pandas as pd
 
-
 from django.contrib import messages
 from datetime import datetime
+
+# views.py
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.forms.models import model_to_dict
+from .models import ExcelUpload, ExcelData
+from .forms import ExcelUploadForm
+from .utils import parse_date, parse_decimal, convert_to_serializable, classify_claim_status
+import pandas as pd
+
 
 @login_required
 def upload_excel(request):
@@ -103,32 +114,25 @@ def upload_excel(request):
         if form.is_valid():
             try:
                 file = request.FILES['file']
-                print("📂 File received:", file.name)
-
                 df = pd.read_excel(file, engine='openpyxl')
-                print("📊 Columns:", df.columns.tolist())
-                print("🔢 Row count:", len(df))
 
-                # Convert all rows to JSON-serializable format
-                serializable_data = [
-                    {col: convert_to_serializable(row[col]) for col in df.columns}
-                    for _, row in df.iterrows()
-                ]
-
-                # Save upload metadata
+                # Create ExcelUpload record
                 upload = ExcelUpload.objects.create(
                     user=request.user,
                     file_name=file.name,
                     row_count=len(df),
                     columns={col: str(df[col].dtype) for col in df.columns}
                 )
-                print(f"✅ ExcelUpload created: ID={upload.id}, Rows={upload.row_count}")
+                request.session['current_upload_id'] = upload.id
+
+                serializable_data = [
+                    {col: convert_to_serializable(row[col]) for col in df.columns}
+                    for _, row in df.iterrows()
+                ]
 
                 created_objects = []
-
-                for index, row_data in enumerate(serializable_data, start=1):
+                for row_data in serializable_data:
                     try:
-                        print(f"\n📄 Row {index}:")
                         obj = ExcelData(
                             upload=upload,
                             company=row_data.get("Company", "Unknown"),
@@ -190,17 +194,13 @@ def upload_excel(request):
                         )
                         created_objects.append(obj)
                     except Exception as row_error:
-                        print(f"❌ Error in row {index}: {row_data}")
-                        print(f"⛔ Reason: {row_error}")
+                        print(f"❌ Error: {row_error}")
 
                 ExcelData.objects.bulk_create(created_objects)
-                print(f"\n✅ Successfully inserted {len(created_objects)} rows.")
-
-                messages.success(request, f"✅ Successfully uploaded {file.name} with {len(created_objects)} records.")
-                return redirect(f'/test-verbose/?upload_id={upload.id}')
+                messages.success(request, f"✅ Uploaded {file.name} with {len(created_objects)} records.")
+                return redirect('test-verbose')
 
             except Exception as e:
-                print("❌ Upload failed (outer exception):", e)
                 messages.error(request, f"❌ Upload failed: {str(e)}")
 
     else:
@@ -208,6 +208,197 @@ def upload_excel(request):
 
     return render(request, 'upload.html', {'form': form})
 
+
+@login_required
+def test_display_data_verbose(request):
+    upload_id = request.session.get('current_upload_id')
+    if not upload_id:
+        messages.error(request, "Missing upload ID.")
+        return redirect('upload_excel')
+
+    try:
+        upload = ExcelUpload.objects.get(id=upload_id, user=request.user)
+    except ExcelUpload.DoesNotExist:
+        return HttpResponse("❌ Upload not found or access denied", status=403)
+
+    queryset = ExcelData.objects.filter(upload=upload)
+    processed_data = []
+
+    for row in queryset:
+        balance = row.balance_due or 0
+        charge = row.net_charges or 0
+        payments = row.payments or 0
+        status = (row.status or '').lower()
+        payor = (row.cur_pay_category or '').lower()
+        pri_payor = (row.pri_payor_category or '').lower()
+        schedule_track = (row.schedule_track or '').lower()
+
+        # Payment Status
+        if balance < 0:
+            ps = "Negative balance"
+        elif balance == 0 and charge == 0 and status in ['canceled', 'closed']:
+            ps = "Canceled Trip"
+        elif balance == 0 and charge > 0 and payments > 0:
+            ps = "Paid & Closed"
+        elif balance == 0 and payments == 0:
+            ps = "Adjusted"
+        elif payments > 0:
+            ps = "Partially paid"
+        else:
+            ps = "Unpaid"
+
+        # AR Status
+        if ps == "Negative balance":
+            ars = "Negative Ins AR"
+        elif ps == "Canceled Trip":
+            ars = "Canceled Trip"
+        elif ps == "Paid & Closed" and pri_payor == 'patient' and payor == 'patient':
+            ars = "Closed - Pt Pri"
+        elif ps == "Paid & Closed":
+            ars = "Closed - Ins Pri"
+        elif ps == "Adjusted":
+            ars = "Adjusted & Closed"
+        elif payor == "patient" and "denials" not in schedule_track and "waystar" not in schedule_track:
+            ars = "Open - Pt AR"
+        else:
+            ars = "Open - Ins AR"
+
+        # Claim Status
+        cs, cs_debug = classify_claim_status(row, ps, ars)
+        row_data = model_to_dict(row)
+        row_data.update({
+            'Payment Status': ps,
+            'AR Status': ars,
+            'Claim Status': cs,
+        })
+        processed_data.append(row_data)
+
+    return render(request, 'testing.html', {
+        'data': processed_data,
+        'upload': upload,
+    })
+
+
+# @login_required
+# def upload_excel(request):
+#     if request.method == 'POST':
+#         form = ExcelUploadForm(request.POST, request.FILES)
+#         if form.is_valid():
+#             try:
+#                 file = request.FILES['file']
+#                 print("📂 File received:", file.name)
+#
+#                 df = pd.read_excel(file, engine='openpyxl')
+#                 print("📊 Columns:", df.columns.tolist())
+#                 print("🔢 Row count:", len(df))
+#
+#                 # Convert all rows to JSON-serializable format
+#                 serializable_data = [
+#                     {col: convert_to_serializable(row[col]) for col in df.columns}
+#                     for _, row in df.iterrows()
+#                 ]
+#                 # upload_id = request.session.get('current_upload_id')  # get saved upload id
+#                 # Save upload metadata
+#                 upload = ExcelUpload.objects.create(
+#                     user=request.user,
+#                     file_name=file.name,
+#                     row_count=len(df),
+#                     columns={col: str(df[col].dtype) for col in df.columns}
+#                 )
+#                 print(f"✅ ExcelUpload created: ID={upload.id}, Rows={upload.row_count}")
+#
+#                 # ✅ Now save ID to session for use in later views
+#                 request.session['current_upload_id'] = upload.id
+#                 print("🧠 Saved upload ID to session:", upload.id)
+#
+#                 created_objects = []
+#
+#                 for index, row_data in enumerate(serializable_data, start=1):
+#                     try:
+#                         print(f"\n📄 Row {index}:")
+#                         obj = ExcelData(
+#                             upload=upload,
+#                             company=row_data.get("Company", "Unknown"),
+#                             dos=parse_date(row_data.get("DOS")),
+#                             dosym=row_data.get("DOSYM", "Unknown"),
+#                             run_number=row_data.get("Run #", "Unknown"),
+#                             inc_number=row_data.get("Inc #t", "Unknown"),
+#                             customer=row_data.get("Cust.", None),
+#                             dob=row_data.get("DOB", None),
+#                             status=row_data.get("Status", "Unknown"),
+#                             prim_pay=row_data.get("Prim Pay", "Unknown"),
+#                             pri_payor_category=row_data.get("Pri Payor Category", "Unknown"),
+#                             cur_pay=row_data.get("Cur Pay", "Unknown"),
+#                             cur_pay_category=row_data.get("Cur Pay Category", "Unknown"),
+#                             schedule_track=row_data.get("Schedule/Track", "Unknown"),
+#                             event_step=row_data.get("Event/Step", "Unknown"),
+#                             coll=row_data.get("Coll", "NO"),
+#                             gross_charges=parse_decimal(row_data.get("Gross Charges")),
+#                             contr_allow=parse_decimal(row_data.get("Contr Allow")),
+#                             net_charges=parse_decimal(row_data.get("Net Charges")),
+#                             revenue_adjustments=parse_decimal(row_data.get("Revenue Adjustments")),
+#                             payments=parse_decimal(row_data.get("Payments")),
+#                             write_offs=parse_decimal(row_data.get("Write-Offs")),
+#                             refunds=parse_decimal(row_data.get("Refunds")),
+#                             balance_due=parse_decimal(row_data.get("Balance Due")),
+#                             aging_date=parse_date(row_data.get("Aging Date")),
+#                             last_event_date=parse_date(row_data.get("Last Event Date")),
+#                             ordering_facility=row_data.get("Ordering Facility", None),
+#                             vehicle=str(row_data.get("Vehicle", "Unknown")),
+#                             call_type=row_data.get("Call Type", "Unknown"),
+#                             priority=row_data.get("Priority", "Unknown"),
+#                             call_type_priority=row_data.get("Call Type - Priority", "Unknown"),
+#                             primary_icd=row_data.get("Primary ICD", "Unknown"),
+#                             loaded_miles=parse_decimal(row_data.get("Loaded Miles", 0.0)),
+#                             pickup_facility=row_data.get("Pickup Facility", None),
+#                             pickup_modifier=row_data.get("Pickup Modifier", "Unknown"),
+#                             pickup_address=row_data.get("Pickup Address", None),
+#                             pickup_city=row_data.get("Pickup City", "Unknown"),
+#                             pickup_state=row_data.get("Pickup State", "NA"),
+#                             pickup_zip=str(row_data.get("Pickup Zip", "00000")),
+#                             dropoff_facility=row_data.get("DropOff Facility", "Unknown"),
+#                             dropoff_modifier=row_data.get("DropOff Modifier", "Unknown"),
+#                             dropoff_address=row_data.get("DropOff Address", None),
+#                             dropoff_city=row_data.get("DropOff City", "Unknown"),
+#                             dropoff_state=row_data.get("DropOff State", "NA"),
+#                             dropoff_zip=str(row_data.get("DropOff Zip", "00000")),
+#                             import_date=parse_date(row_data.get("Import Date")),
+#                             import_date_ym=row_data.get("Import Date YM", "Unknown"),
+#                             med_nec=row_data.get("Med Nec", "Unknown"),
+#                             accident_type=row_data.get("Accident Type", None),
+#                             assigned_group=str(row_data.get("Assigned Group", None)),
+#                             location=row_data.get("Location", "Unknown"),
+#                             last_modified_date=parse_date(row_data.get("Last Modified Date")),
+#                             last_modified_by=row_data.get("Last Modified By", "Unknown"),
+#                             team=row_data.get("Team", "Unknown"),
+#                             job=row_data.get("Job", "Unknown"),
+#                             emsmart_id=row_data.get("EMSmartID", "Unknown"),
+#                             prior_auth=row_data.get("Prior Auth", None),
+#                         )
+#                         created_objects.append(obj)
+#                     except Exception as row_error:
+#                         print(f"❌ Error in row {index}: {row_data}")
+#                         print(f"⛔ Reason: {row_error}")
+#
+#                 ExcelData.objects.bulk_create(created_objects)
+#                 print(f"\n✅ Successfully inserted {len(created_objects)} rows.")
+#
+#                 messages.success(request, f"✅ Successfully uploaded {file.name} with {len(created_objects)} records.")
+#
+#                 # Optional: use session-based redirect
+#                 return redirect('test-verbose')  # This will pick session ID
+#
+#                 # Or: use URL param
+#                 # return redirect(f'/test-verbose/?upload_id={upload.id}')
+#
+#             except Exception as e:
+#                 print("❌ Upload failed (outer exception):", e)
+#                 messages.error(request, f"❌ Upload failed: {str(e)}")
+#
+#     else:
+#         form = ExcelUploadForm()
+#
+#     return render(request, 'upload.html', {'form': form})
 
 def parse_date(val):
     try:
@@ -369,123 +560,103 @@ def classify_claim_status(row, payment_status, ar_status):
 
 from django.forms.models import model_to_dict
 
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
+from django.contrib import messages
+from django.forms.models import model_to_dict
 
-def test_display_data_verbose(request):
-    upload_id = request.GET.get('upload_id')
-    print("📥 Debug - Received upload_id from GET:", upload_id)
-
-    upload = get_object_or_404(ExcelUpload, id=upload_id)
-
-    if upload.user != request.user:
-        return HttpResponse(f"❌ This upload belongs to: {upload.user.username}, but you're logged in as {request.user.username}",
-            status=403)
-
-    # if not upload_id:
-    #     return HttpResponse("No upload selected. Please choose an upload file.", status=400)
-
-    if not upload_id:
-        messages.error(request, "Missing upload ID.")
-        return redirect('upload_excel')  # Or any safe fallback
-
-    # Fetch first 50 rows for selected upload
-    # queryset = ExcelData.objects.filter(upload__id=upload_id, upload__user=request.user)[:50]
-    upload = get_object_or_404(ExcelUpload, id=upload_id, user=request.user)
-
-    queryset = ExcelData.objects.filter(upload=upload)[:50]
-
-    if not queryset.exists():
-        return HttpResponse("No data found for the selected upload or you do not have permission.", status=404)
-
-    processed_data = []
-
-    print("\n======= STARTING CLASSIFICATION PROCESS =======")
-
-    for i, row in enumerate(queryset, 1):
-        balance = row.balance_due or 0
-        charge = row.net_charges or 0
-        payments = row.payments or 0
-        status = (row.status or '').lower()
-        payor = (row.cur_pay_category or '').lower()
-        pri_payor = (row.pri_payor_category or '').lower()
-        schedule_track = (row.schedule_track or '').lower()
-
-        print(f"\n--- Row {i} ---")
-        print(f"Key Values: Balance={balance}, Charge={charge}, Payments={payments}, Status='{status}'")
-        print(f"Payor Info: Current='{payor}', Primary='{pri_payor}', Schedule='{schedule_track}'")
-
-        # 1. Payment Status Classification
-        print("\n1. Determining Payment Status:")
-        if balance < 0:
-            ps = "Negative balance"
-            print(f"  - Rule: Balance ({balance}) < 0 → '{ps}'")
-        elif balance == 0 and charge == 0 and status in ['canceled', 'closed']:
-            ps = "Canceled Trip"
-            print(f"  - Rule: Zero balance & charge + status '{status}' → '{ps}'")
-        elif balance == 0 and charge > 0 and payments > 0:
-            ps = "Paid & Closed"
-            print(f"  - Rule: Zero balance with payments → '{ps}'")
-        elif balance == 0 and payments == 0:
-            ps = "Adjusted"
-            print(f"  - Rule: Zero balance without payments → '{ps}'")
-        elif payments > 0:
-            ps = "Partially paid"
-            print(f"  - Rule: Payments exist but balance remains → '{ps}'")
-        else:
-            ps = "Unpaid"
-            print(f"  - Rule: Default case → '{ps}'")
-
-        # 2. AR Status Classification
-        print("\n2. Determining AR Status:")
-        if ps == "Negative balance":
-            ars = "Negative Ins AR"
-            print(f"  - Rule: Payment Status is '{ps}' → '{ars}'")
-        elif (balance == 0 and charge == 0 and status in ['canceled', 'closed']) or ps == "Canceled Trip":
-            ars = "Canceled Trip"
-            print(f"  - Rule: Canceled trip conditions → '{ars}'")
-        elif ps == "Paid & Closed" and pri_payor == 'patient' and payor == 'patient':
-            ars = "Closed - Pt Pri"
-            print(f"  - Rule: Paid & patient primary → '{ars}'")
-        elif ps == "Paid & Closed":
-            ars = "Closed - Ins Pri"
-            print(f"  - Rule: Paid & non-patient primary → '{ars}'")
-        elif ps == "Adjusted":
-            ars = "Adjusted & Closed"
-            print(f"  - Rule: Payment Status is '{ps}' → '{ars}'")
-        elif payor == "patient" and "denials" not in schedule_track and "waystar" not in schedule_track:
-            ars = "Open - Pt AR"
-            print(f"  - Rule: Patient payor without denials → '{ars}'")
-        else:
-            ars = "Open - Ins AR"
-            print(f"  - Rule: Default case → '{ars}'")
-
-        # 3. Claim Status Classification
-        print("\n3. Determining Claim Status:")
-        cs, cs_debug = classify_claim_status(row, ps, ars)
-        for step in cs_debug:
-            print(f"  - {step}")
-        print(f"  - Final Claim Status: '{cs}'")
-
-        print(f"\nFinal Classification: Payment='{ps}', AR='{ars}', Claim='{cs}'")
-
-        # processed_data.append({
-        #     'row': row,  # you can use `row.<field>` in template if needed
-        #     'Payment Status': ps,
-        #     'AR Status': ars,
-        #     'Claim Status': cs
-        # })
-
-        row_data = model_to_dict(row)
-        row_data.update({
-            'Payment Status': ps,
-            'AR Status': ars,
-            'Claim Status': cs,
-        })
-        processed_data.append(row_data)
-
-    print("\n======= CLASSIFICATION COMPLETE =======")
-
-    return render(request, 'testing.html', {'data': processed_data})
-
+# @login_required
+# def test_display_data_verbose(request):
+#     upload_id = request.GET.get('upload_id')
+#     print("📥 Debug - Received upload_id from GET:", upload_id)
+#
+#     if not upload_id:
+#         messages.error(request, "Missing upload ID.")
+#         return redirect('upload_excel')  # Fallback if no upload_id
+#
+#     # Securely fetch the ExcelUpload for the current user
+#     try:
+#         upload = ExcelUpload.objects.get(id=upload_id, user=request.user)
+#         print(f"✅ Upload found: {upload}")
+#     except ExcelUpload.DoesNotExist:
+#         return HttpResponse(
+#             f"❌ Upload not found or you don't have access to ID: {upload_id}",
+#             status=403
+#         )
+#
+#     queryset = ExcelData.objects.filter(upload=upload)[:50]
+#     print(f"🔍 Found {queryset.count()} ExcelData rows for upload ID {upload_id}")
+#
+#     if not queryset.exists():
+#         messages.warning(request, "⚠ No data found for this upload. Please check the file or re-upload.")
+#         return render(request, 'testing.html', {'data': [], 'upload': upload})
+#
+#     processed_data = []
+#
+#     print("\n======= STARTING CLASSIFICATION PROCESS =======")
+#
+#     for i, row in enumerate(queryset, 1):
+#         balance = row.balance_due or 0
+#         charge = row.net_charges or 0
+#         payments = row.payments or 0
+#         status = (row.status or '').lower()
+#         payor = (row.cur_pay_category or '').lower()
+#         pri_payor = (row.pri_payor_category or '').lower()
+#         schedule_track = (row.schedule_track or '').lower()
+#
+#         print(f"\n--- Row {i} ---")
+#
+#         # 1. Payment Status
+#         if balance < 0:
+#             ps = "Negative balance"
+#         elif balance == 0 and charge == 0 and status in ['canceled', 'closed']:
+#             ps = "Canceled Trip"
+#         elif balance == 0 and charge > 0 and payments > 0:
+#             ps = "Paid & Closed"
+#         elif balance == 0 and payments == 0:
+#             ps = "Adjusted"
+#         elif payments > 0:
+#             ps = "Partially paid"
+#         else:
+#             ps = "Unpaid"
+#
+#         # 2. AR Status
+#         if ps == "Negative balance":
+#             ars = "Negative Ins AR"
+#         elif ps == "Canceled Trip":
+#             ars = "Canceled Trip"
+#         elif ps == "Paid & Closed" and pri_payor == 'patient' and payor == 'patient':
+#             ars = "Closed - Pt Pri"
+#         elif ps == "Paid & Closed":
+#             ars = "Closed - Ins Pri"
+#         elif ps == "Adjusted":
+#             ars = "Adjusted & Closed"
+#         elif payor == "patient" and "denials" not in schedule_track and "waystar" not in schedule_track:
+#             ars = "Open - Pt AR"
+#         else:
+#             ars = "Open - Ins AR"
+#
+#         # 3. Claim Status
+#         cs, cs_debug = classify_claim_status(row, ps, ars)
+#         for debug_step in cs_debug:
+#             print(f"  - {debug_step}")
+#         print(f"  - Final Claim Status: '{cs}'")
+#
+#         row_data = model_to_dict(row)
+#         row_data.update({
+#             'Payment Status': ps,
+#             'AR Status': ars,
+#             'Claim Status': cs,
+#         })
+#         processed_data.append(row_data)
+#
+#     print("\n======= CLASSIFICATION COMPLETE =======")
+#
+#     return render(request, 'testing.html', {
+#         'data': processed_data,
+#         'upload': upload,
+#     })
+#
 
 import openpyxl
 from openpyxl.utils import get_column_letter
@@ -931,7 +1102,6 @@ def upload_task_file(request):
     return render(request, 'upload_task_file.html')
 
 
-
 @login_required
 def map_task_fields(request):
     excel_headers = request.session.get('excel_headers')
@@ -1126,6 +1296,7 @@ def employee_target_dashboard(request):
     )
     return render(request, 'employee_target_dashboard.html', {'stats': stats})
 
+
 @login_required
 def qa_audit_list(request):
     audits = QAAudit.objects.select_related('claim', 'audited_by').all()
@@ -1147,23 +1318,38 @@ def qa_audit_list(request):
 #     return render(request, 'qa_audit_form.html', {'form': form})
 from django.core.exceptions import ObjectDoesNotExist
 
+
 @login_required
 def qa_audit_create(request):
     if request.method == 'POST':
         form = QAAuditForm(request.POST)
         if form.is_valid():
             audit = form.save(commit=False)
-            try:
-                audit.audited_by = Employee.objects.get(email=request.user.email)
-            except ObjectDoesNotExist:
-                messages.error(request, "❌ No Employee found with your email. Contact admin to link your profile.")
-                return redirect('qa_audit_list')
+
+            # Get first client as default (you can change this logic)
+            client = Client.objects.first()
+
+            # Create or get the employee linked to the logged-in user
+            employee, created = Employee.objects.get_or_create(
+                email=request.user.email,
+                defaults={
+                    'employee_name': request.user.get_full_name() or request.user.username,
+                    'client_name': client,
+                    'target': 100,  # Default target
+                    'ramp_percent': 0.0,
+                    'created_by': request.user,
+                }
+            )
+
+            audit.audited_by = employee
             audit.save()
-            messages.success(request, "✅ Audit submitted.")
+            messages.success(request, "✅ Audit submitted successfully.")
             return redirect('qa_audit_list')
     else:
         form = QAAuditForm()
+
     return render(request, 'qa_audit_form.html', {'form': form})
+
 
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -1187,3 +1373,119 @@ from django.core.exceptions import ObjectDoesNotExist
 #         form = QAAuditForm(initial={'audited_by': employee})
 #
 #     return render(request, 'qa_audit_form.html', {'form': form})
+
+
+import difflib
+import pandas as pd
+from decimal import Decimal
+from datetime import datetime
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.utils.dateparse import parse_date
+from django.contrib.auth.decorators import login_required
+from django.core.files.storage import default_storage
+from django.shortcuts import get_object_or_404
+
+from .models import ExcelUpload, ExcelData
+# Adjust this import based on your classification logic
+from .utils import parse_decimal  # ensure this exists
+
+
+def safe_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    elif isinstance(value, str):
+        return parse_date(value)
+    return None
+
+
+def auto_map_headers(excel_headers, model_fields):
+    mapping = {}
+    for header in excel_headers:
+        key = header.strip().lower().replace(" ", "_")
+        match = difflib.get_close_matches(key, model_fields, n=1, cutoff=0.6)
+        if match:
+            mapping[header] = match[0]
+    return mapping
+
+
+@login_required
+def upload_excel_with_automap(request):
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        file = request.FILES['excel_file']
+        file_path = default_storage.save(f'temp/{file.name}', file)
+        abs_path = default_storage.path(file_path)
+
+        try:
+            df = pd.read_excel(abs_path)
+            columns = list(df.columns)
+
+            # Save ExcelUpload entry
+            upload = ExcelUpload.objects.create(
+                user=request.user,
+                file_name=file.name,
+                row_count=len(df),
+                columns=columns
+            )
+
+            request.session['current_upload_id'] = upload.id
+
+            # Get model fields (excluding some)
+            allowed_fields = [f.name for f in ExcelData._meta.fields if f.name not in ['id', 'assigned_to']]
+
+            # Auto-map Excel headers to model fields
+            header_mapping = auto_map_headers(columns, allowed_fields)
+
+            # Rename columns and filter only valid fields
+            df = df.rename(columns=header_mapping)
+            df = df[[col for col in df.columns if col in allowed_fields]]
+
+            # Prepare and save ExcelData records
+            date_fields = ['dos', 'aging_date', 'last_event_date', 'import_date', 'last_modified_date']
+            decimal_fields = ['gross_charges', 'net_charges', 'payments', 'balance_due']
+
+            rows = []
+            for _, row in df.iterrows():
+                data = {}
+                for field in df.columns:
+                    value = row.get(field)
+                    if field in date_fields:
+                        value = safe_date(value)
+                    elif field in decimal_fields:
+                        value = parse_decimal(value)
+                    data[field] = value
+                rows.append(ExcelData(**data, upload=upload))
+
+            ExcelData.objects.bulk_create(rows)
+
+            messages.success(request, f"Uploaded and imported {len(rows)} rows successfully.")
+            return redirect(f'/test-verbose/?upload_id={upload.id}')
+
+        except Exception as e:
+            messages.error(request, f"Upload failed: {e}")
+
+    return render(request, 'upload_auto.html')
+
+
+# excel update & delete code
+
+@login_required
+def edit_exceldata(request, pk):
+    instance = get_object_or_404(ExcelData, id=pk)
+    if request.method == 'POST':
+        form = ExcelDataForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return redirect('test_display_data_verbose')
+    else:
+        form = ExcelDataForm(instance=instance)
+    return render(request, 'edit_exceldata.html', {'form': form})
+
+@login_required
+def delete_exceldata(request, pk):
+    instance = get_object_or_404(ExcelData, id=pk)
+    if request.method == 'POST':
+        instance.delete()
+        return redirect('test_display_data_verbose')
+    return render(request, 'confirm_delete.html', {'object': instance})
+

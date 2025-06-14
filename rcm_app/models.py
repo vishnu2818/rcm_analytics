@@ -87,6 +87,7 @@ class ExcelData(models.Model):
     job = models.CharField(max_length=50, null=True, blank=True)
     emsmart_id = models.CharField(max_length=20, null=True, blank=True)
     prior_auth = models.CharField(max_length=100, null=True, blank=True)
+
     assigned_to = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):

@@ -23,7 +23,9 @@ urlpatterns = [
     path("register/", register_view, name="register"),
     path("login/", LoginView.as_view(template_name="login.html"), name="login"),
     path("logout/", LogoutView.as_view(next_page="login"), name="logout"),
+    # not using below upload
     path("upload/", upload_excel, name="upload_excel"),
+
     path('chat/<int:room_id>/', chat_room, name='chat_room'),
     path('send/', send_message, name='send_message'),
     path('start_chat/<int:user_id>/', start_chat, name='start_chat'),
@@ -44,5 +46,10 @@ urlpatterns = [
 
 path('qa-audits/', qa_audit_list, name='qa_audit_list'),
 path('qa-audits/create/', qa_audit_create, name='qa_audit_create'),
+
+    path('upload-auto/', upload_excel_with_automap, name='upload_excel_with_automap'),
+    path('exceldata/edit/<int:pk>/', edit_exceldata, name='edit_exceldata'),
+    path('exceldata/delete/<int:pk>/', delete_exceldata, name='delete_exceldata'),
+
 
 ]

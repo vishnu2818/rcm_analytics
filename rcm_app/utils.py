@@ -25,3 +25,43 @@ def convert_to_serializable(val):
     if pd.isna(val):
         return None
     return str(val).strip() if isinstance(val, str) else val
+
+
+def classify_claim_status(row, payment_status, ar_status):
+    debug = []
+
+    schedule_track = (row.schedule_track or '').lower()
+    status = (row.status or '').lower()
+    team = (row.team or '').lower()
+    event = (row.event_step or '').lower()
+    coll = (row.coll or '').strip().upper()
+
+    debug.append(f"Schedule/Track: {schedule_track}")
+    debug.append(f"Status: {status}")
+    debug.append(f"Team: {team}")
+    debug.append(f"Event/Step: {event}")
+    debug.append(f"Coll: {coll}")
+
+    # 💡 Add your logic here:
+    if ar_status == "Canceled Trip":
+        return "Canceled", debug
+
+    if "denial" in schedule_track:
+        return "Denial WQ", debug
+
+    if "waystar" in schedule_track:
+        return "Waystar WQ", debug
+
+    if coll == "YES":
+        return "Collections", debug
+
+    if team == "coding":
+        return "Coding Review", debug
+
+    if "appeal" in schedule_track:
+        return "Appeal WQ", debug
+
+    if event in ["submitted", "resubmitted"]:
+        return "Submitted", debug
+
+    return "Pending Review", debug

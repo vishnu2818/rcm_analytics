@@ -1,0 +1,11 @@
+
+
+
+<h2>Upload Excel File (Auto-Mapping)</h2>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <input type="file" name="excel_file" accept=".xls,.xlsx" required>
+  <button type="submit">Upload and Classify</button>
+</form>
+
