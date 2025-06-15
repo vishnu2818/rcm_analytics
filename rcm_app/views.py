@@ -222,9 +222,12 @@ def test_display_data_verbose(request):
         return HttpResponse("❌ Upload not found or access denied", status=403)
 
     queryset = ExcelData.objects.filter(upload=upload)
+
     processed_data = []
 
-    for row in queryset:
+    print("\n======= STARTING CLASSIFICATION PROCESS =======")
+
+    for i, row in enumerate(queryset, 1):
         balance = row.balance_due or 0
         charge = row.net_charges or 0
         payments = row.payments or 0
@@ -233,7 +236,9 @@ def test_display_data_verbose(request):
         pri_payor = (row.pri_payor_category or '').lower()
         schedule_track = (row.schedule_track or '').lower()
 
-        # Payment Status
+        print(f"\n--- Row {i} ---")
+
+        # 1. Payment Status
         if balance < 0:
             ps = "Negative balance"
         elif balance == 0 and charge == 0 and status in ['canceled', 'closed']:
@@ -247,7 +252,7 @@ def test_display_data_verbose(request):
         else:
             ps = "Unpaid"
 
-        # AR Status
+        # 2. AR Status
         if ps == "Negative balance":
             ars = "Negative Ins AR"
         elif ps == "Canceled Trip":
@@ -263,8 +268,12 @@ def test_display_data_verbose(request):
         else:
             ars = "Open - Ins AR"
 
-        # Claim Status
+        # 3. Claim Status
         cs, cs_debug = classify_claim_status(row, ps, ars)
+        for debug_step in cs_debug:
+            print(f"  - {debug_step}")
+        print(f"  - Final Claim Status: '{cs}'")
+
         row_data = model_to_dict(row)
         row_data.update({
             'Payment Status': ps,
@@ -273,10 +282,69 @@ def test_display_data_verbose(request):
         })
         processed_data.append(row_data)
 
+    print("\n======= CLASSIFICATION COMPLETE =======")
+
     return render(request, 'testing.html', {
-        'data': queryset,
+        'data': processed_data,
         'upload': upload,
     })
+
+
+    # processed_data = []
+    #
+    # for row in queryset:
+    #     balance = row.balance_due or 0
+    #     charge = row.net_charges or 0
+    #     payments = row.payments or 0
+    #     status = (row.status or '').lower()
+    #     payor = (row.cur_pay_category or '').lower()
+    #     pri_payor = (row.pri_payor_category or '').lower()
+    #     schedule_track = (row.schedule_track or '').lower()
+    #
+    #     # Payment Status
+    #     if balance < 0:
+    #         ps = "Negative balance"
+    #     elif balance == 0 and charge == 0 and status in ['canceled', 'closed']:
+    #         ps = "Canceled Trip"
+    #     elif balance == 0 and charge > 0 and payments > 0:
+    #         ps = "Paid & Closed"
+    #     elif balance == 0 and payments == 0:
+    #         ps = "Adjusted"
+    #     elif payments > 0:
+    #         ps = "Partially paid"
+    #     else:
+    #         ps = "Unpaid"
+    #
+    #     # AR Status
+    #     if ps == "Negative balance":
+    #         ars = "Negative Ins AR"
+    #     elif ps == "Canceled Trip":
+    #         ars = "Canceled Trip"
+    #     elif ps == "Paid & Closed" and pri_payor == 'patient' and payor == 'patient':
+    #         ars = "Closed - Pt Pri"
+    #     elif ps == "Paid & Closed":
+    #         ars = "Closed - Ins Pri"
+    #     elif ps == "Adjusted":
+    #         ars = "Adjusted & Closed"
+    #     elif payor == "patient" and "denials" not in schedule_track and "waystar" not in schedule_track:
+    #         ars = "Open - Pt AR"
+    #     else:
+    #         ars = "Open - Ins AR"
+    #
+    #     # Claim Status
+    #     cs, cs_debug = classify_claim_status(row, ps, ars)
+    #     row_data = model_to_dict(row)
+    #     row_data.update({
+    #         'Payment Status': ps,
+    #         'AR Status': ars,
+    #         'Claim Status': cs,
+    #     })
+    #     processed_data.append(row_data)
+    #
+    # return render(request, 'testing.html', {
+    #     'data': processed_data,
+    #     'upload': upload,
+    # })
 
 
 # @login_required
@@ -1301,6 +1369,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from .models import Employee, ExcelData
 from .forms import EmployeeForm
 
+
 @login_required
 def employee_target_update(request, pk):
     target = get_object_or_404(Employee, pk=pk)
@@ -1323,7 +1392,6 @@ def employee_target_update(request, pk):
     form.fields['tasks'].initial = ExcelData.objects.filter(assigned_to=target)
 
     return render(request, 'employee_target_form.html', {'form': form, 'action': 'Update'})
-
 
 
 @login_required
@@ -1530,7 +1598,6 @@ def edit_exceldata(request, pk):
     else:
         form = ExcelDataForm(instance=instance)
     return render(request, 'edit_exceldata.html', {'form': form})
-
 
 
 @login_required

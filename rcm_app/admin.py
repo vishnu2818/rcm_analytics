@@ -48,7 +48,7 @@ class ExcelUploadAdmin(admin.ModelAdmin):
 
 @admin.register(ExcelData)
 class ExcelDataAdmin(admin.ModelAdmin):
-    list_display = ('company', 'assigned_to', 'status', 'dos', 'prim_pay', 'balance_due')
+    list_display = ('company', 'assigned_to', 'status', 'dos', 'prim_pay', 'balance_due', 'prior_auth', )
     list_filter = ('assigned_to', 'status', 'prim_pay')
     search_fields = ('customer', 'company', 'assigned_to__employee_name')
 

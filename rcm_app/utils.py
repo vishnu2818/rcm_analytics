@@ -28,40 +28,90 @@ def convert_to_serializable(val):
 
 
 def classify_claim_status(row, payment_status, ar_status):
-    debug = []
+    """
+    Determine claim status based on the 12-step logic provided
+    Returns tuple: (claim_status, debug_steps)
+    """
+    debug_steps = []
 
-    schedule_track = (row.schedule_track or '').lower()
+    #  Extract relevant fields using model field access
+    balance = float(row.balance_due or 0)
+    charge = float(row.net_charges or 0)
+    payments = float(row.payments or 0)
     status = (row.status or '').lower()
-    team = (row.team or '').lower()
-    event = (row.event_step or '').lower()
-    coll = (row.coll or '').strip().upper()
+    payor = (row.cur_pay_category or '').lower()
+    pri_payor = (row.pri_payor_category or '').lower()
+    schedule_track = (row.schedule_track or '').lower()
 
-    debug.append(f"Schedule/Track: {schedule_track}")
-    debug.append(f"Status: {status}")
-    debug.append(f"Team: {team}")
-    debug.append(f"Event/Step: {event}")
-    debug.append(f"Coll: {coll}")
+    # Rest of the function remains the same...
+    # Step 1: Negative balance
+    if balance < 0:
+        debug_steps.append("Step 1: Negative balance detected")
+        return "Negative balance", debug_steps
 
-    # 💡 Add your logic here:
-    if ar_status == "Canceled Trip":
-        return "Canceled", debug
+    # Step 2: Canceled but closed
+    if (payment_status == "Canceled Trip" and status == 'closed') or \
+            (balance == 0 and charge == 0 and status == 'closed'):
+        debug_steps.append("Step 2: Canceled with closed status")
+        return "Canceled but Status Closed", debug_steps
 
-    if "denial" in schedule_track:
-        return "Denial WQ", debug
+    # Step 3: Canceled with Posting
+    if payment_status == "Canceled Trip" and \
+            (balance != 0 or charge != 0 or payments != 0):
+        debug_steps.append("Step 3: Canceled with financial activity")
+        return "Canceled with Posting", debug_steps
 
-    if "waystar" in schedule_track:
-        return "Waystar WQ", debug
+    # Step 4: Canceled Trip
+    if balance == 0 and charge == 0 and status == 'canceled':
+        debug_steps.append("Step 4: Canceled trip with no activity")
+        return "Canceled Trip", debug_steps
 
-    if coll == "YES":
-        return "Collections", debug
+    # Step 5: New Trips
+    if status == 'new' or 'emsmart processed' in schedule_track:
+        debug_steps.append("Step 5: New trip detected")
+        return "New Trips", debug_steps
 
-    if team == "coding":
-        return "Coding Review", debug
+    # Step 6: Paid & Closed
+    if payment_status == "Paid & Closed" or \
+            (balance == 0 and charge > 0 and payments > 0):
+        debug_steps.append("Step 6: Paid and closed claim")
+        return "Paid & Closed", debug_steps
 
-    if "appeal" in schedule_track:
-        return "Appeal WQ", debug
+    # Step 7: Adjusted & Closed
+    if payment_status == "Adjusted":
+        debug_steps.append("Step 7: Adjusted claim")
+        return "Adjusted & Closed", debug_steps
 
-    if event in ["submitted", "resubmitted"]:
-        return "Submitted", debug
+    # Step 8: Patient Signature Requested npp signature required
+    if ar_status == "Open - Pt AR" and \
+            ('signature required' in schedule_track or 'npp' in schedule_track):
+        debug_steps.append("Step 8: Patient signature required")
+        return "Pt Sign requested", debug_steps
 
-    return "Pending Review", debug
+    # Step 9: Billed to Patient - Primary
+    if (payor == 'patient' and pri_payor == 'patient' and \
+        not any(x in schedule_track for x in ['waystar', 'denials', 'automatic crossover'])) or \
+            (ar_status == "Open - Pt AR" and pri_payor == 'patient'):
+        debug_steps.append("Step 9: Billed to patient (primary)")
+        return "Billed to Pt - Pri", debug_steps
+
+    # Step 10: Billed to Patient - Secondary
+    if ar_status == "Open - Pt AR" and \
+            payor == 'patient' and pri_payor != 'patient':
+        debug_steps.append("Step 10: Billed to patient (secondary)")
+        return "Billed to Pt - Sec", debug_steps
+
+    # Step 11: Billed to Insurance - Primary
+    if ar_status == "Open - Ins AR" and \
+            payor == pri_payor and \
+            'automatic crossover' not in schedule_track:
+        debug_steps.append("Step 11: Billed to insurance (primary)")
+        return "Billed to Ins - Pri", debug_steps
+
+    # Step 12: Billed to Insurance - Secondary
+    if ar_status == "Open - Ins AR":
+        debug_steps.append("Step 12: Billed to insurance (secondary)")
+        return "Billed to Ins - Sec", debug_steps
+
+    debug_steps.append("No matching claim status found - defaulting")
+    return "Unclassified", debug_steps
