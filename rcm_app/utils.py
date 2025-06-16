@@ -1,13 +1,16 @@
 from decimal import Decimal, InvalidOperation
+import re
+import numpy as np
 import pandas as pd
 from datetime import datetime
 
 
-def parse_decimal(value):
-    try:
-        return Decimal(str(value).replace(",", "").strip())
-    except (InvalidOperation, TypeError, ValueError):
-        return Decimal('0.00')
+def safe_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    elif isinstance(value, str):
+        return parse_date(value)
+    return None
 
 
 def parse_date(val):
@@ -21,10 +24,13 @@ def parse_date(val):
         return datetime(2000, 1, 1).date()
 
 
-def convert_to_serializable(val):
-    if pd.isna(val):
-        return None
-    return str(val).strip() if isinstance(val, str) else val
+def parse_decimal(val):
+    try:
+        if pd.isna(val) or val == '':
+            return Decimal('0.00')
+        return Decimal(str(val))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal('0.00')
 
 
 def classify_claim_status(row, payment_status, ar_status):
@@ -115,3 +121,82 @@ def classify_claim_status(row, payment_status, ar_status):
 
     debug_steps.append("No matching claim status found - defaulting")
     return "Unclassified", debug_steps
+
+
+def classify_payment_status(row):
+    balance = float(getattr(row, 'balance_due', 0) or 0)
+    charge = float(getattr(row, 'net_charges', 0) or 0)
+    payments = float(getattr(row, 'payments', 0) or 0)
+    status = (getattr(row, 'status', '') or '').lower()
+
+    if balance < 0:
+        return "Negative balance"
+    elif balance == 0 and charge == 0 and status in ['canceled', 'closed']:
+        return "Canceled Trip"
+    elif balance == 0 and charge > 0 and payments > 0:
+        return "Paid & Closed"
+    elif balance == 0 and payments == 0:
+        return "Adjusted"
+    elif payments > 0:
+        return "Partially paid"
+    elif charge != 0 or balance != 0:
+        return "Unpaid"
+    return ""
+
+
+def convert_to_serializable(value):
+    """Convert pandas and numpy types to Python native types"""
+    if pd.isna(value):
+        return None
+    if isinstance(value, (pd.Timestamp, datetime)):
+        return value.isoformat()
+    if isinstance(value, (np.integer)):
+        return int(value)
+    if isinstance(value, (np.floating)):
+        return float(value)
+    if isinstance(value, (np.ndarray)):
+        return value.tolist()
+    return value
+
+
+def sanitize_column_name(col_name):
+    """Sanitize column name to avoid issues with SQL syntax."""
+    return re.sub(r'\W|^(?=\d)', '_', col_name)
+
+
+def convert_to_sql_compatible(value):
+    """Convert values to SQL-compatible formats."""
+    if pd.isna(value) or value is None:
+        return None
+    if isinstance(value, (pd.Timestamp, datetime)):
+        return value.isoformat()
+    if isinstance(value, (int, float)):
+        return value
+    return str(value)
+
+
+def classify_ar_status(row, payment_status):
+    status = (getattr(row, 'status', '') or '').lower()
+    payor = (getattr(row, 'cur_pay_category', '') or '').lower()
+    pri_payor = (getattr(row, 'pri_payor_category', '') or '').lower()
+    schedule_track = (getattr(row, 'schedule_track', '') or '').lower()
+
+    balance = float(getattr(row, 'balance_due', 0) or 0)
+    charge = float(getattr(row, 'net_charges', 0) or 0)
+
+    if payment_status == "Negative balance":
+        return "Negative Ins AR"
+    elif (
+            (balance == 0 and charge == 0 and status in ['canceled', 'closed']) or
+            payment_status == "Canceled Trip"
+    ):
+        return "Canceled Trip"
+    elif payment_status == "Paid & Closed" and pri_payor == 'patient' and payor == 'patient':
+        return "Closed - Pt Pri"
+    elif payment_status == "Paid & Closed":
+        return "Closed - Ins Pri"
+    elif payment_status == "Adjusted":
+        return "Adjusted & Closed"
+    elif payor == "patient" and "denials" not in schedule_track and "waystar" not in schedule_track:
+        return "Open - Pt AR"
+    return "Open - Ins AR"

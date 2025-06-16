@@ -23,8 +23,11 @@ urlpatterns = [
     path("register/", register_view, name="register"),
     path("login/", LoginView.as_view(template_name="login.html"), name="login"),
     path("logout/", LogoutView.as_view(next_page="login"), name="logout"),
-    # not using below upload
-    path("upload/", upload_excel, name="upload_excel"),
+
+
+    path("upload-auto/", upload_excel, name="upload_excel"),
+    path('map_task_fields/', map_task_fields1, name='map_task_fields1'),
+    path('excel-test-verbose/', excel_display_data_verbose, name='excel_display_data_verbose'),
 
     path('chat/<int:room_id>/', chat_room, name='chat_room'),
     path('send/', send_message, name='send_message'),
@@ -33,6 +36,7 @@ urlpatterns = [
 
     path("upload_task/", upload_task_file, name="upload_task"),
     path('map_task_fields/', map_task_fields, name='map_task_fields'),
+
     path('confirm_exceldata_import/', confirm_exceldata_import, name='confirm_exceldata_import'),
     path('dashboard/', dashboard, name='dashboard'),
 
@@ -47,7 +51,8 @@ urlpatterns = [
 path('qa-audits/', qa_audit_list, name='qa_audit_list'),
 path('qa-audits/create/', qa_audit_create, name='qa_audit_create'),
 
-    path('upload-auto/', upload_excel_with_automap, name='upload_excel_with_automap'),
+    # path('upload-auto/', upload_excel_with_automap, name='upload_excel_with_automap'),
+    # path('upload-auto/', upload_excel, name='upload_excel_with_automap'),
     path('exceldata/edit/<int:pk>/', edit_exceldata, name='edit_exceldata'),
     path('exceldata/delete/<int:pk>/', delete_exceldata, name='delete_exceldata'),
 
