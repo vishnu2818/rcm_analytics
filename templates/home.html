@@ -108,14 +108,14 @@
 <!--&lt;!&ndash;            <div class="nav-card">&ndash;&gt;-->
 <!--&lt;!&ndash;                <h2>Data Classification</h2>&ndash;&gt;-->
 <!--&lt;!&ndash;                <p>View detailed claim classification with verbose output</p>&ndash;&gt;-->
-<!--&lt;!&ndash;                <a href="{% url 'test-verbose' %}" class="btn">View Classified Data</a>&ndash;&gt;-->
+<!--&lt;!&ndash;                <a href="{% url 'excel_display_data_verbose' %}" class="btn">View Classified Data</a>&ndash;&gt;-->
 <!--&lt;!&ndash;            </div>&ndash;&gt;-->
 <!--            &lt;!&ndash; Test Data Card &ndash;&gt;-->
 <!--<div class="nav-card">-->
 <!--    <h2>Data Classification</h2>-->
 <!--    <p>View detailed claim classification with verbose output</p>-->
 
-<!--    <form method="get" action="{% url 'test-verbose' %}">-->
+<!--    <form method="get" action="{% url 'excel_display_data_verbose' %}">-->
 <!--        <label for="upload_id">Select Upload:</label>-->
 <!--        <select name="upload_id" id="upload_id" required>-->
 <!--            <option value="">&#45;&#45; Choose File &#45;&#45;</option>-->
@@ -239,7 +239,7 @@
 <!--        <h3>RCM Menu</h3>-->
 <!--        <a href="{% url 'upload_excel' %}">Upload Data</a>-->
 <!--        <a href="{% url 'dashboard' %}">Dashboard</a>-->
-<!--        <a href="{% url 'test-verbose' %}">Data Classification</a>-->
+<!--        <a href="{% url 'excel_display_data_verbose' %}">Data Classification</a>-->
 <!--        <a href="{% url 'download_pdf' %}">Download PDF</a>-->
 <!--        <a href="{% url 'download_excel' %}">Download Excel</a>-->
 <!--        {% if user.is_authenticated %}-->
@@ -275,7 +275,7 @@
 <!--            <div class="nav-card">-->
 <!--                <h2>Data Classification</h2>-->
 <!--                <p>View detailed claim classification with verbose output</p>-->
-<!--                <form method="get" action="{% url 'test-verbose' %}">-->
+<!--                <form method="get" action="{% url 'excel_display_data_verbose' %}">-->
 <!--                    <label for="upload_id">Select Upload:</label>-->
 <!--                    <select name="upload_id" id="upload_id" required>-->
 <!--                        <option value="">&#45;&#45; Choose File &#45;&#45;</option>-->
@@ -413,7 +413,7 @@
             <div class="nav-card">
                 <h2>Data Classification</h2>
                 <p>View detailed claim classification with verbose output</p>
-                <form method="get" action="{% url 'test-verbose' %}">
+                <form method="get" action="{% url 'excel_display_data_verbose' %}">
                     <label for="upload_id">Select Upload:</label><br>
                     <select name="upload_id" id="upload_id" required>
                         <option value="">-- Choose File --</option>

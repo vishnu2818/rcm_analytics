@@ -5,24 +5,45 @@ import pandas as pd
 from datetime import datetime
 
 
+
+
+
+from datetime import datetime, date
+import pandas as pd
+from datetime import datetime, date
+
+def parse_date(value):
+    if pd.isnull(value) or value == '':
+        return None
+    if isinstance(value, date):
+        return value  # Already a date or datetime
+    if isinstance(value, pd.Timestamp):
+        return value.to_pydatetime().date()
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, float) or isinstance(value, int):  # Excel serial format
+        try:
+            return pd.to_datetime(value, unit='D', origin='1899-12-30').date()
+        except Exception as e:
+            print(f"⚠️ Cannot parse float date: {value} - {e}")
+            return None
+    if isinstance(value, str):
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+            try:
+                return datetime.strptime(value.strip(), fmt).date()
+            except ValueError:
+                continue
+    print(f"⚠️ Unknown date format: {value} ({type(value)})")
+    return None
+
+
+
 def safe_date(value):
     if isinstance(value, datetime):
         return value.date()
     elif isinstance(value, str):
         return parse_date(value)
     return None
-
-
-def parse_date(val):
-    try:
-        if pd.isna(val):
-            return datetime(2000, 1, 1).date()
-        if isinstance(val, datetime):
-            return val.date()
-        return pd.to_datetime(val).date()
-    except Exception:
-        return datetime(2000, 1, 1).date()
-
 
 def parse_decimal(val):
     try:
