@@ -5,15 +5,9 @@ typing-extensions==4.10.0
 # Server (works without gevent)
 gunicorn==21.2.0
 
-# OCR & PDF (OCR from scanned images)
-pymupdf==1.23.21          # PyMuPDF with `import fitz`
-pytesseract==0.3.10       # Tesseract OCR
-pdf2image==1.17.0         # For OCR fallback (requires poppler-utils)
-pillow==10.1.0            # Image handling
+# OCR Only (no PyMuPDF)
 
-# Make sure the system has:
-# - tesseract-ocr installed
-# - poppler-utils for pdf2image
+pillow==10.1.0
 
 # All your project dependencies below
 appdirs==1.4.4
