@@ -6,7 +6,8 @@ typing-extensions==4.10.0
 gunicorn==21.2.0
 
 # OCR & PDF scanning (replace PyMuPDF)
-
+pytesseract==0.3.10
+pdf2image==1.17.0
 pillow==10.1.0
 
 # Core dependencies
@@ -22,7 +23,7 @@ certifi==2024.7.4
 cffi==1.16.0
 chardet==4.0.0
 charset-normalizer==3.3.2
-cryptography==45.0.3
+cryptography==42.0.5  # downgraded for wheel compatibility
 cssselect2==0.8.0
 decorator==4.4.2
 defusedxml==0.7.1
@@ -38,7 +39,7 @@ idna==2.10
 isodate==0.6.1
 Jinja2==3.1.2
 libsass==0.22.0
-lxml==5.4.0
+lxml==4.9.3  # downgraded for wheel compatibility
 lxml_html_clean==0.1.1
 MarkupSafe==2.1.5
 num2words==0.5.9
@@ -49,8 +50,7 @@ pandas==2.2.3
 passlib==1.7.4
 polib==1.1.0
 psutil==5.9.8
-psycopg2==2.9.9
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.9  # only binary version required
 pyasn1==0.6.0
 pyasn1_modules==0.4.0
 pycparser==2.22
@@ -64,7 +64,7 @@ PyPDF2==2.12.1
 pyserial==3.5
 python-bidi==0.6.6
 python-dateutil==2.9.0.post0
-python-ldap==3.4.4
+python-ldap-wheel==3.4.3.1  # safer fork for Render builds
 python-stdnum==1.16
 pytz==2024.1
 pyusb==1.2.1
