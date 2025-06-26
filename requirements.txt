@@ -1,15 +1,15 @@
-# Force Python < 3.13
+# Python compatibility (use python-3.11.9 in runtime.txt)
 numpy==1.26.4
 typing-extensions==4.10.0
 
-# Server (works without gevent)
+# Server runtime
 gunicorn==21.2.0
 
-# OCR Only (no PyMuPDF)
+# OCR & PDF scanning (replace PyMuPDF)
 
 pillow==10.1.0
 
-# All your project dependencies below
+# Core dependencies
 appdirs==1.4.4
 arabic-reshaper==3.0.0
 asgiref==3.8.1
